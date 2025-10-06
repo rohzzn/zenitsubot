@@ -2,7 +2,7 @@ import type { Client, ChatInputCommandInteraction, GuildMember } from 'discord.j
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { shoukaku } from '../../../music/lavalink.js';
 import type { Track } from '../../../music/track.js';
-import { ZENITSU_THEME, getRandomMusic } from '../../../utils/constants.js';
+import { ZENITSU_THEME, EMOTES, getRandomMusic } from '../../../utils/constants.js';
 
 export const play = {
   data: { name: 'play' },
@@ -73,7 +73,7 @@ export const play = {
       if (!result || result.loadType === 'empty' || result.loadType === 'error') {
         const errorMsg = result?.loadType === 'error' ? (result.data as any)?.message : 'No results found';
         console.error('Search failed:', { loadType: result?.loadType, identifier, error: errorMsg });
-        await interaction.editReply(`❌ W-wait! ${errorMsg || 'No results found.'}`);
+        await interaction.editReply(`${EMOTES.NOT_LIKE_THIS} ${errorMsg || 'No results found'}`);
         return;
       }
 

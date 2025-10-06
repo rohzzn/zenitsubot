@@ -107,6 +107,11 @@ async function main() {
   // Admin commands
   const { welcome } = await import('./commands/slash/admin/welcome.js');
   const { streamalert } = await import('./commands/slash/admin/streamalert.js');
+  
+  // Game commands
+  const steamsearch = await import('./commands/slash/games/steamsearch.js');
+  const freegames = await import('./commands/slash/games/freegames.js');
+  const gamesearch = await import('./commands/slash/games/gamesearch.js');
 
   client.commands.set(ping.data.name, ping);
   client.commands.set(help.data.name, help);
@@ -143,6 +148,9 @@ async function main() {
   client.commands.set(icebreaker.data.name, icebreaker);
   client.commands.set(welcome.data.name, welcome);
   client.commands.set(streamalert.data.name, streamalert);
+  client.commands.set(steamsearch.data.name, steamsearch);
+  client.commands.set(freegames.data.name, freegames);
+  client.commands.set(gamesearch.data.name, gamesearch);
 
   // Start anime episode checker
   const { startAnimeChecker } = await import('./services/animeChecker.js');

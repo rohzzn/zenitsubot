@@ -197,6 +197,30 @@ export function registerReadyListener(client: Client) {
               .addStringOption((o) => o.setName('id').setDescription('Channel ID or username').setRequired(true))
           )
           .addSubcommand((sub) => sub.setName('list').setDescription('List all stream alerts')),
+        
+        // Game commands
+        new SlashCommandBuilder()
+          .setName('steamsearch')
+          .setDescription('Search for Steam games or players')
+          .addSubcommand((sub) =>
+            sub
+              .setName('game')
+              .setDescription('Search for a game on Steam')
+              .addStringOption((o) => o.setName('query').setDescription('Game name').setRequired(true))
+          )
+          .addSubcommand((sub) =>
+            sub
+              .setName('player')
+              .setDescription('Search for a Steam player')
+              .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
+          ),
+        new SlashCommandBuilder()
+          .setName('freegames')
+          .setDescription('Check current free games on Epic and Steam'),
+        new SlashCommandBuilder()
+          .setName('gamesearch')
+          .setDescription('Search for game info with ratings and reviews')
+          .addStringOption((o) => o.setName('game').setDescription('Game name to search').setRequired(true)),
       ];
 
       await rest.put(Routes.applicationCommands(cfg.DISCORD_APP_ID), { body: commands.map(c => c.toJSON()) });

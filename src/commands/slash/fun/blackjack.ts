@@ -1,6 +1,6 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { ZENITSU_THEME } from '../../../utils/constants.js';
+import { ZENITSU_THEME, EMOTES } from '../../../utils/constants.js';
 import { getPrisma } from '../../../services/db.js';
 
 const suits = ['♠️', '♥️', '♣️', '♦️'];
@@ -124,13 +124,13 @@ export const blackjack = {
     
     const embed = new EmbedBuilder()
       .setColor(ZENITSU_THEME.PRIMARY)
-      .setTitle('⚡ Blackjack!')
-      .setDescription(`Bet: **${bet}** coins 💛`)
+      .setTitle(`${EMOTES.FLUENT_SPARKLES} Blackjack!`)
+      .setDescription(`Bet: **${bet}** coins`)
       .addFields([
         { name: '🎴 Your Hand', value: `${formatHand(playerHand)}\nTotal: **${playerTotal}**`, inline: true },
         { name: '🎴 Dealer', value: `${dealerHand[0]!.value}${dealerHand[0]!.suit} 🂠\nTotal: **?**`, inline: true }
       ])
-      .setFooter({ text: 'I-I hope you win! 💛' });
+      .setFooter({ text: 'Good luck! ⚡' });
     
     // Check for instant blackjack
     if (playerTotal === 21) {
@@ -151,10 +151,12 @@ export const blackjack = {
       new ButtonBuilder()
         .setCustomId(`bj_hit_${userId}`)
         .setLabel('Hit')
+        .setEmoji(EMOTES.UPVOTE)
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`bj_stand_${userId}`)
         .setLabel('Stand')
+        .setEmoji(EMOTES.DOWNVOTE)
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
         .setCustomId(`bj_double_${userId}`)
