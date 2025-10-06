@@ -1,0 +1,34 @@
+server:
+  port: 2333
+  address: 0.0.0.0
+
+lavalink:
+  plugins:
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.14.0"
+      snapshot: false
+    - dependency: "com.dunctebot:skybot-lavalink-plugin:1.7.0"
+      snapshot: false
+  server:
+    password: ${LAVALINK_PASSWORD:changeme}
+    sources:
+      youtube: false  # Disable deprecated source
+      bandcamp: true
+      soundcloud: true
+      twitch: true
+      vimeo: true
+      http: true
+      local: false
+      spotify: true  # Enable Spotify
+
+plugins:
+  dunctebot:
+    ttsLanguage: "en-US"
+    sources:
+      spotify: true
+      applemusic: false
+      deezer: false
+      yandexmusic: false
+
+logging:
+  level:
+    root: INFO

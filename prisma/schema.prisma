@@ -1,0 +1,87 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model GuildConfig {
+  id                 String   @id @default(cuid())
+  guildId            String   @unique
+  modLogChannelId    String?  // channel to log moderation actions
+  welcomeEnabled     Boolean  @default(false)
+  welcomeChannelId   String?
+  welcomeMessage     String?
+  goodbyeEnabled     Boolean  @default(false)
+  goodbyeChannelId   String?
+  musicDefaultVolume Int      @default(50)
+  musicIdleMinutes   Int      @default(5)
+  musicAutoplay      Boolean  @default(false)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  guildId   String
+  userId    String
+  text      String
+  dueAt     DateTime
+  createdAt DateTime @default(now())
+  completed Boolean  @default(false)
+}
+
+model ReactionRole {
+  id          String   @id @default(cuid())
+  guildId     String
+  messageId   String
+  channelId   String
+  emoji       String
+  roleId      String
+  createdAt   DateTime @default(now())
+}
+
+model AnimeAlert {
+  id            String   @id @default(cuid())
+  guildId       String
+  channelId     String
+  animeId       String   // MyAnimeList ID or name
+  animeName     String
+  lastEpisode   Int      @default(0)
+  createdAt     DateTime @default(now())
+  
+  @@unique([guildId, animeId])
+}
+
+model UserEconomy {
+  id            String   @id @default(cuid())
+  userId        String
+  guildId       String
+  coins         Int      @default(0)
+  level         Int      @default(1)
+  xp            Int      @default(0)
+  lastDaily     DateTime?
+  lastRep       DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([userId, guildId])
+}
+
+model StreamAlert {
+  id            String   @id @default(cuid())
+  guildId       String
+  channelId     String
+  platform      String   // "youtube" or "twitch"
+  streamerId    String   // Channel ID or username
+  streamerName  String
+  lastNotified  DateTime?
+  createdAt     DateTime @default(now())
+  
+  @@unique([guildId, platform, streamerId])
+}
+
+

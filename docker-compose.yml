@@ -1,0 +1,27 @@
+services:
+  bot:
+    build: .
+    env_file:
+      - .env
+    depends_on:
+      - lavalink
+    restart: unless-stopped
+    volumes:
+      - ./prisma:/app/prisma
+    command: ["node", "dist/index.js"]
+
+  lavalink:
+    image: ghcr.io/lavalink-devs/lavalink:4
+    environment:
+      - SERVER_PORT=2333
+      - LAVALINK_SERVER_PASSWORD=${LAVALINK_PASSWORD:-changeme}
+    ports:
+      - "2333:2333"
+    volumes:
+      - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
+    restart: unless-stopped
+
+volumes:
+  db:
+
+
