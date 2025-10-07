@@ -18,4 +18,7 @@ export function getPrisma(): PrismaClient {
   return prismaInstance;
 }
 
+// Export a convenient db instance
+export const db = getPrisma();
+
 

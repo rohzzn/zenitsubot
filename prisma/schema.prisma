@@ -48,27 +48,40 @@ model AnimeAlert {
   id            String   @id @default(cuid())
   guildId       String
   channelId     String
+  userId        String   // Added for user-specific alerts
   animeId       String   // MyAnimeList ID or name
-  animeName     String
+  animeName     String   // Renamed from animeName
+  title         String   @default("") // Display title
   lastEpisode   Int      @default(0)
   createdAt     DateTime @default(now())
   
   @@unique([guildId, animeId])
+  @@index([userId])
+}
+
+model User {
+  id                    String   @id @default(cuid())
+  userId                String   @unique  // Discord user ID
+  balance               Int      @default(0)  // Wallet balance
+  bank                  Int      @default(0)  // Bank balance
+  linkedRolesVerified   Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 }
 
 model UserEconomy {
   id            String   @id @default(cuid())
-  userId        String
-  guildId       String
+  userId        String   @unique  // Global per user, not per guild
   coins         Int      @default(0)
   level         Int      @default(1)
   xp            Int      @default(0)
   lastDaily     DateTime?
   lastRep       DateTime?
+  totalWagered  Int      @default(0)  // Total amount wagered
+  totalWon      Int      @default(0)   // Total amount won
+  gamesPlayed   Int      @default(0)   // Total games played
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-  
-  @@unique([userId, guildId])
 }
 
 model StreamAlert {
@@ -82,6 +95,19 @@ model StreamAlert {
   createdAt     DateTime @default(now())
   
   @@unique([guildId, platform, streamerId])
+}
+
+model UserInventory {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String   // Item identifier (e.g., "bg_sunset", "badge_winner")
+  itemType  String   // "background", "badge", "color"
+  itemName  String
+  equipped  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  @@unique([userId, itemId])
+  @@index([userId])
 }
 
 

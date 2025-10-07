@@ -77,16 +77,15 @@ export const blackjack = {
     
     const prisma = getPrisma();
     const userId = interaction.user.id;
-    const guildId = interaction.guildId!;
     
-    // Get or create user economy
+    // Get or create user economy (global)
     let userEcon = await prisma.userEconomy.findUnique({
-      where: { userId_guildId: { userId, guildId } }
+      where: { userId }
     });
     
     if (!userEcon) {
       userEcon = await prisma.userEconomy.create({
-        data: { userId, guildId, coins: 1000 } // Starting coins
+        data: { userId, coins: 1000 } // Starting coins
       });
     }
     
@@ -114,8 +113,7 @@ export const blackjack = {
       playerHand,
       dealerHand,
       bet,
-      userId,
-      guildId
+      userId
     };
     
     activeGames.set(userId, game);
@@ -124,20 +122,34 @@ export const blackjack = {
     
     const embed = new EmbedBuilder()
       .setColor(ZENITSU_THEME.PRIMARY)
-      .setTitle(`${EMOTES.FLUENT_SPARKLES} Blackjack!`)
-      .setDescription(`Bet: **${bet}** coins`)
+      .setTitle(`${EMOTES.FLUENT_SPARKLES} Blackjack Game`)
+      .setDescription(`**Bet:** ${bet} coins\n\u200b`)
       .addFields([
-        { name: '🎴 Your Hand', value: `${formatHand(playerHand)}\nTotal: **${playerTotal}**`, inline: true },
-        { name: '🎴 Dealer', value: `${dealerHand[0]!.value}${dealerHand[0]!.suit} 🂠\nTotal: **?**`, inline: true }
+        { 
+          name: '🎴 Your Hand', 
+          value: `${formatHand(playerHand)}\n**Total:** ${playerTotal}\n\u200b`, 
+          inline: true 
+        },
+        { 
+          name: '🎴 Dealer Hand', 
+          value: `${dealerHand[0]!.value}${dealerHand[0]!.suit} 🂠\n**Total:** ?\n\u200b`, 
+          inline: true 
+        }
       ])
-      .setFooter({ text: 'Good luck! ⚡' });
+      .setFooter({ text: 'Good luck! ⚡' })
+      .setTimestamp();
     
     // Check for instant blackjack
     if (playerTotal === 21) {
       const winAmount = Math.floor(bet * 1.5);
       await prisma.userEconomy.update({
-        where: { userId_guildId: { userId, guildId } },
-        data: { coins: userEcon.coins + winAmount }
+        where: { userId },
+        data: { 
+          coins: userEcon.coins + winAmount,
+          totalWagered: userEcon.totalWagered + bet,
+          totalWon: userEcon.totalWon + winAmount + bet,
+          gamesPlayed: userEcon.gamesPlayed + 1
+        }
       });
       
       embed.setDescription(`**BLACKJACK!** ⚡\nYou won **${winAmount}** coins! 💛`);

@@ -1,14 +1,11 @@
-import { SlashCommandBuilder, EmbedBuilder, type Client, type ChatInputCommandInteraction } from 'discord.js';
+import { EmbedBuilder, type Client, type ChatInputCommandInteraction } from 'discord.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import { logger } from '../../../services/logger.js';
 
-export const data = new SlashCommandBuilder()
-  .setName('gamesearch')
-  .setDescription('Search for game info with ratings and reviews')
-  .addStringOption(opt => opt.setName('game').setDescription('Game name to search').setRequired(true));
-
-export async function execute(client: Client, interaction: ChatInputCommandInteraction) {
-  const gameName = (interaction as any).options.getString('game');
+export const gamesearch = {
+  data: { name: 'gamesearch' },
+  async execute(client: Client, interaction: ChatInputCommandInteraction) {
+    const gameName = interaction.options.getString('game', true);
 
   try {
     await interaction.deferReply();
@@ -68,7 +65,8 @@ export async function execute(client: Client, interaction: ChatInputCommandInter
     logger.error({ err, gameName }, 'Game search error');
     await interaction.editReply('Failed to search for game. Please try again later.').catch(() => {});
   }
-}
+  }
+};
 
 function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/\n\n+/g, '\n');

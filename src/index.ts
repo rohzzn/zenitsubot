@@ -97,21 +97,43 @@ async function main() {
   const { balance } = await import('./commands/slash/economy/balance.js');
   const { daily } = await import('./commands/slash/economy/daily.js');
   const { leaderboard } = await import('./commands/slash/economy/leaderboard.js');
+  const { work } = await import('./commands/slash/economy/work.js');
+  const { rob } = await import('./commands/slash/economy/rob.js');
+  const { gift } = await import('./commands/slash/economy/gift.js');
+  const { rank } = await import('./commands/slash/economy/rank.js');
+  const { shop } = await import('./commands/slash/economy/shop.js');
+  const { inventory } = await import('./commands/slash/economy/inventory.js');
   
   // Fun commands
   const { eightball } = await import('./commands/slash/fun/8ball.js');
   const { blackjack } = await import('./commands/slash/fun/blackjack.js');
+  const { slots } = await import('./commands/slash/fun/slots.js');
+  const { coinflip } = await import('./commands/slash/fun/coinflip.js');
+  const { dice } = await import('./commands/slash/fun/dice.js');
   const { animequote } = await import('./commands/slash/fun/animequote.js');
   const { icebreaker } = await import('./commands/slash/fun/icebreaker.js');
+  const { meme } = await import('./commands/slash/fun/meme.js');
+  const { hug } = await import('./commands/slash/fun/hug.js');
+  const { kiss } = await import('./commands/slash/fun/kiss.js');
+  const { cuddle } = await import('./commands/slash/fun/cuddle.js');
+  const { slap } = await import('./commands/slash/fun/slap.js');
+  const { punch } = await import('./commands/slash/fun/punch.js');
+  const { kickfun } = await import('./commands/slash/fun/kick.js');
   
   // Admin commands
   const { welcome } = await import('./commands/slash/admin/welcome.js');
   const { streamalert } = await import('./commands/slash/admin/streamalert.js');
   
   // Game commands
-  const steamsearch = await import('./commands/slash/games/steamsearch.js');
-  const freegames = await import('./commands/slash/games/freegames.js');
-  const gamesearch = await import('./commands/slash/games/gamesearch.js');
+  const { steamsearch } = await import('./commands/slash/games/steamsearch.js');
+  const { steamprofile } = await import('./commands/slash/games/steamprofile.js');
+  const { freegames } = await import('./commands/slash/games/freegames.js');
+  const { gamesearch } = await import('./commands/slash/games/gamesearch.js');
+  const { csgo } = await import('./commands/slash/games/csgo.js');
+  const { faceit } = await import('./commands/slash/games/faceit.js');
+  
+  // Anime airing
+  const { animairing } = await import('./commands/slash/anime/airing.js');
 
   client.commands.set(ping.data.name, ping);
   client.commands.set(help.data.name, help);
@@ -139,18 +161,38 @@ async function main() {
   client.commands.set(animeupcoming.data.name, animeupcoming);
   client.commands.set(animecharacter.data.name, animecharacter);
   client.commands.set(animealert.data.name, animealert);
+  client.commands.set(animairing.data.name, animairing);
   client.commands.set(balance.data.name, balance);
   client.commands.set(daily.data.name, daily);
   client.commands.set(leaderboard.data.name, leaderboard);
+  client.commands.set(work.data.name, work);
+  client.commands.set(rob.data.name, rob);
+  client.commands.set(gift.data.name, gift);
+  client.commands.set(rank.data.name, rank);
+  client.commands.set(shop.data.name, shop);
+  client.commands.set(inventory.data.name, inventory);
   client.commands.set(eightball.data.name, eightball);
   client.commands.set(blackjack.data.name, blackjack);
+  client.commands.set(slots.data.name, slots);
+  client.commands.set(coinflip.data.name, coinflip);
+  client.commands.set(dice.data.name, dice);
   client.commands.set(animequote.data.name, animequote);
   client.commands.set(icebreaker.data.name, icebreaker);
+  client.commands.set(meme.data.name, meme);
+  client.commands.set(hug.data.name, hug);
+  client.commands.set(kiss.data.name, kiss);
+  client.commands.set(cuddle.data.name, cuddle);
+  client.commands.set(slap.data.name, slap);
+  client.commands.set(punch.data.name, punch);
+  client.commands.set(kickfun.data.name, kickfun);
   client.commands.set(welcome.data.name, welcome);
   client.commands.set(streamalert.data.name, streamalert);
   client.commands.set(steamsearch.data.name, steamsearch);
+  client.commands.set(steamprofile.data.name, steamprofile);
   client.commands.set(freegames.data.name, freegames);
   client.commands.set(gamesearch.data.name, gamesearch);
+  client.commands.set(csgo.data.name, csgo);
+  client.commands.set(faceit.data.name, faceit);
 
   // Start anime episode checker
   const { startAnimeChecker } = await import('./services/animeChecker.js');

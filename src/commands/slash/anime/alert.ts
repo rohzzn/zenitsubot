@@ -47,23 +47,26 @@ export const animealert = {
         const animeId = anime.mal_id.toString();
         
         await prisma.animeAlert.upsert({
-          where: {
-            guildId_animeId: {
-              guildId: interaction.guildId!,
-              animeId,
-            },
-          },
-          create: {
+        where: {
+          guildId_animeId: {
             guildId: interaction.guildId!,
-            channelId: channel.id,
             animeId,
-            animeName: anime.title,
-            lastEpisode: anime.episodes || 0,
           },
-          update: {
-            channelId: channel.id,
-            animeName: anime.title,
-          },
+        },
+        create: {
+          guildId: interaction.guildId!,
+          channelId: channel.id,
+          userId: interaction.user.id,
+          animeId,
+          animeName: anime.title,
+          title: anime.title,
+          lastEpisode: anime.episodes || 0,
+        },
+        update: {
+          channelId: channel.id,
+          animeName: anime.title,
+          title: anime.title,
+        },
         });
         
         const embed = new EmbedBuilder()

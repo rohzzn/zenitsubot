@@ -105,6 +105,9 @@ export function registerReadyListener(client: Client) {
           .setDescription('Search for anime characters')
           .addStringOption((o) => o.setName('name').setDescription('Character name').setRequired(true)),
         new SlashCommandBuilder()
+          .setName('animairing')
+          .setDescription('View currently airing anime this season'),
+        new SlashCommandBuilder()
           .setName('animealert')
           .setDescription('Setup anime episode alerts')
           .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
@@ -221,6 +224,29 @@ export function registerReadyListener(client: Client) {
           .setName('gamesearch')
           .setDescription('Search for game info with ratings and reviews')
           .addStringOption((o) => o.setName('game').setDescription('Game name to search').setRequired(true)),
+        new SlashCommandBuilder()
+          .setName('steamprofile')
+          .setDescription('Get detailed Steam profile information')
+          .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true)),
+        new SlashCommandBuilder()
+          .setName('csgo')
+          .setDescription('CS:GO player stats and inventory')
+          .addSubcommand((sub) =>
+            sub
+              .setName('stats')
+              .setDescription('View CS:GO competitive stats')
+              .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
+          )
+          .addSubcommand((sub) =>
+            sub
+              .setName('inventory')
+              .setDescription('View CS:GO inventory')
+              .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
+          ),
+        new SlashCommandBuilder()
+          .setName('faceit')
+          .setDescription('Search Faceit player profile and stats')
+          .addStringOption((o) => o.setName('username').setDescription('Faceit username').setRequired(true)),
       ];
 
       await rest.put(Routes.applicationCommands(cfg.DISCORD_APP_ID), { body: commands.map(c => c.toJSON()) });

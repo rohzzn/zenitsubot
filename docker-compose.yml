@@ -8,6 +8,11 @@ services:
     restart: unless-stopped
     volumes:
       - ./prisma:/app/prisma
+      - ./public:/app/public
+    ports:
+      - "80:3000"
+    networks:
+      - zenitsu-network
     command: ["node", "dist/index.js"]
 
   lavalink:
@@ -15,11 +20,20 @@ services:
     environment:
       - SERVER_PORT=2333
       - LAVALINK_SERVER_PASSWORD=${LAVALINK_PASSWORD:-changeme}
-    ports:
-      - "2333:2333"
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID:-}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET:-}
+    expose:
+      - "2333"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     restart: unless-stopped
+    networks:
+      - zenitsu-network
+
+
+networks:
+  zenitsu-network:
+    driver: bridge
 
 volumes:
   db:

@@ -1,26 +1,25 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
-import { ZENITSU_THEME } from '../../../utils/constants.js';
+import { ZENITSU_THEME, EMOTES } from '../../../utils/constants.js';
 import { getPrisma } from '../../../services/db.js';
 
 export const daily = {
   data: {
     name: 'daily',
-    description: 'Claim your daily coins!',
+    description: 'Claim your daily coins (global across all servers)!',
   },
   
   async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     const prisma = getPrisma();
     const userId = interaction.user.id;
-    const guildId = interaction.guildId!;
     
     let userEcon = await prisma.userEconomy.findUnique({
-      where: { userId_guildId: { userId, guildId } }
+      where: { userId }
     });
     
     if (!userEcon) {
       userEcon = await prisma.userEconomy.create({
-        data: { userId, guildId, coins: 1000 }
+        data: { userId, coins: 1000 }
       });
     }
     
@@ -30,41 +29,71 @@ export const daily = {
     if (lastDaily) {
       const timeSince = now.getTime() - lastDaily.getTime();
       const hoursLeft = 24 - Math.floor(timeSince / (1000 * 60 * 60));
+      const minutesLeft = Math.ceil((24 * 60 * 60 * 1000 - timeSince) / (1000 * 60));
       
       if (timeSince < 24 * 60 * 60 * 1000) {
         await interaction.reply({ 
-          content: `⏰ W-wait! You already claimed your daily! Come back in **${hoursLeft} hours**! 😰`,
+          content: `${EMOTES.ANIME_CRYING} W-wait! You already claimed your daily! Come back in **${hoursLeft}h ${minutesLeft % 60}m**! 😰`,
           ephemeral: true 
         });
         return;
       }
     }
     
+    // Streak bonus
+    let streak = 1;
+    if (lastDaily) {
+      const daysSince = Math.floor((now.getTime() - lastDaily.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSince === 1) {
+        // Continuing streak
+        streak = Math.floor(userEcon.xp / 10) + 1; // Use XP as streak tracker (temp)
+      }
+    }
+    
     const baseDaily = 500;
-    const bonus = Math.floor(Math.random() * 200) + 100; // 100-300 bonus
-    const total = baseDaily + bonus;
+    const randomBonus = Math.floor(Math.random() * 200) + 100; // 100-300
+    const streakBonus = Math.min(streak * 50, 500); // Max 500 bonus
+    const total = baseDaily + randomBonus + streakBonus;
     
     await prisma.userEconomy.update({
-      where: { userId_guildId: { userId, guildId } },
+      where: { userId },
       data: { 
         coins: userEcon.coins + total,
-        lastDaily: now
+        lastDaily: now,
+        xp: userEcon.xp + 10 // Track daily streaks
       }
     });
     
     const embed = new EmbedBuilder()
       .setColor(ZENITSU_THEME.SUCCESS)
-      .setTitle('⚡ Daily Reward Claimed!')
+      .setTitle(`${EMOTES.ZENITSU_HEARTEYES} Daily Reward Claimed!`)
       .setDescription(
-        `You received **${total}** coins! 💛\n\n` +
-        `Base: ${baseDaily} 💰\n` +
-        `Bonus: +${bonus} ⚡\n\n` +
-        `New balance: **${(userEcon.coins + total).toLocaleString()}** coins`
+        `You received **${total.toLocaleString()}** coins! 💛\n\u200b`
       )
-      .setFooter({ text: 'Come back tomorrow! 💛' })
+      .addFields([
+        {
+          name: '💰 Breakdown',
+          value:
+            `${EMOTES.BULLET} Base Daily: **${baseDaily}** 💛\n` +
+            `${EMOTES.BULLET} Random Bonus: **+${randomBonus}** ⚡\n` +
+            (streakBonus > 0 ? `${EMOTES.BULLET} Streak Bonus: **+${streakBonus}** 🔥\n` : '') +
+            `\u200b`,
+          inline: false
+        },
+        {
+          name: '💛 New Balance',
+          value: `**${(userEcon.coins + total).toLocaleString()}** coins`,
+          inline: true
+        },
+        {
+          name: '⏰ Next Daily',
+          value: `**24 hours**`,
+          inline: true
+        }
+      ])
+      .setFooter({ text: 'Come back tomorrow for more! Global across all servers 💛' })
       .setTimestamp();
     
     await interaction.reply({ embeds: [embed] });
   },
 };
-

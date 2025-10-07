@@ -43,11 +43,35 @@ export function registerAuth(app: express.Express) {
   app.use(passport.initialize());
   app.use(passport.session());
 
-  app.get('/auth/login', passport.authenticate('discord'));
+  app.get('/auth/login', (req, res, next) => {
+    const redirect = req.query.redirect as string;
+    if (redirect) {
+      (req.session as any).redirect = redirect;
+    }
+    passport.authenticate('discord')(req, res, next);
+  });
 
   app.get(
     '/auth/callback',
-    passport.authenticate('discord', { failureRedirect: '/login-failed', successRedirect: '/dashboard' }),
+    passport.authenticate('discord', { failureRedirect: '/login-failed' }),
+    (req, res) => {
+      try {
+        const redirect = (req.session as any).redirect || '/dashboard';
+        delete (req.session as any).redirect;
+        
+        // Save session before redirect
+        req.session.save((err) => {
+          if (err) {
+            console.error('Session save error:', err);
+            return res.redirect('/login-failed');
+          }
+          res.redirect(redirect);
+        });
+      } catch (error) {
+        console.error('Auth callback error:', error);
+        res.redirect('/login-failed');
+      }
+    },
   );
 
   app.get('/logout', (req, res) => {
@@ -56,7 +80,26 @@ export function registerAuth(app: express.Express) {
     });
   });
 
-  app.get('/login-failed', (_req, res) => res.status(401).send('Login failed'));
+  app.get('/login-failed', (_req, res) => {
+    res.status(401).send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Login Failed</title>
+        <style>
+          body { font-family: sans-serif; text-align: center; padding: 50px; background: #191919; color: #E3E2E0; }
+          h1 { color: #E03E3E; }
+          a { color: #FDB022; text-decoration: none; }
+        </style>
+      </head>
+      <body>
+        <h1>Login Failed</h1>
+        <p>Unable to authenticate with Discord. Please try again.</p>
+        <a href="/">Go back to home</a>
+      </body>
+      </html>
+    `);
+  });
 }
 
 export function ensureAuth(req: Request, res: Response, next: NextFunction) {

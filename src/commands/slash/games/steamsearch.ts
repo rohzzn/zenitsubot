@@ -1,34 +1,21 @@
-import { SlashCommandBuilder, EmbedBuilder, type Client, type ChatInputCommandInteraction } from 'discord.js';
+import { EmbedBuilder, type Client, type ChatInputCommandInteraction } from 'discord.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import { logger } from '../../../services/logger.js';
 
-export const data = new SlashCommandBuilder()
-  .setName('steamsearch')
-  .setDescription('Search for Steam games or players')
-  .addSubcommand(sub =>
-    sub
-      .setName('game')
-      .setDescription('Search for a game on Steam')
-      .addStringOption(opt => opt.setName('query').setDescription('Game name').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub
-      .setName('player')
-      .setDescription('Search for a Steam player')
-      .addStringOption(opt => opt.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
-  );
+export const steamsearch = {
+  data: { name: 'steamsearch' },
+  async execute(client: Client, interaction: ChatInputCommandInteraction) {
+    const subcommand = interaction.options.getSubcommand();
 
-export async function execute(client: Client, interaction: ChatInputCommandInteraction) {
-  const subcommand = (interaction as any).options.getSubcommand();
-
-  if (subcommand === 'game') {
-    const query = (interaction as any).options.getString('query');
-    await searchSteamGame(interaction, query);
-  } else if (subcommand === 'player') {
-    const steamId = (interaction as any).options.getString('steamid');
-    await searchSteamPlayer(interaction, steamId);
+    if (subcommand === 'game') {
+      const query = interaction.options.getString('query', true);
+      await searchSteamGame(interaction, query);
+    } else if (subcommand === 'player') {
+      const steamId = interaction.options.getString('steamid', true);
+      await searchSteamPlayer(interaction, steamId);
+    }
   }
-}
+};
 
 async function searchSteamGame(interaction: ChatInputCommandInteraction, query: string) {
   try {

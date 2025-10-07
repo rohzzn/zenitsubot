@@ -187,9 +187,14 @@ async function handleBlackjackButton(client: Client, interaction: ButtonInteract
       
       if (playerTotal > 21) {
         // Bust!
+        const userEcon = await prisma.userEconomy.findUnique({ where: { userId: game.userId } });
         await prisma.userEconomy.update({
-          where: { userId_guildId: { userId: game.userId, guildId: game.guildId } },
-          data: { coins: { decrement: game.bet } }
+          where: { userId: game.userId },
+          data: { 
+            coins: { decrement: game.bet },
+            totalWagered: { increment: game.bet },
+            gamesPlayed: { increment: 1 }
+          }
         });
         
         const embed = new EmbedBuilder()
@@ -265,10 +270,16 @@ async function handleBlackjackButton(client: Client, interaction: ButtonInteract
         coinChange = 0;
       }
       
-      // Update coins
+      // Update coins and stats
+      const userEcon = await prisma.userEconomy.findUnique({ where: { userId: game.userId } });
       await prisma.userEconomy.update({
-        where: { userId_guildId: { userId: game.userId, guildId: game.guildId } },
-        data: { coins: { increment: coinChange } }
+        where: { userId: game.userId },
+        data: { 
+          coins: { increment: coinChange },
+          totalWagered: { increment: game.bet },
+          totalWon: { increment: coinChange > 0 ? coinChange + game.bet : 0 },
+          gamesPlayed: { increment: 1 }
+        }
       });
       
       const embed = new EmbedBuilder()

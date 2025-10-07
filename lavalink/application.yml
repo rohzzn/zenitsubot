@@ -31,11 +31,15 @@ plugins:
       deezer: false
       yandexmusic: false
     spotify:
-      clientId: "your_spotify_client_id_here"
-      clientSecret: "your_spotify_client_secret_here"
+      clientId: "${SPOTIFY_CLIENT_ID:}"
+      clientSecret: "${SPOTIFY_CLIENT_SECRET:}"
       countryCode: "US"
-      playlistLoadLimit: 100
-      albumLoadLimit: 100
+      playlistLoadLimit: 1000
+      albumLoadLimit: 1000
+    ratelimit:
+      ipBlocks: []
+      excludedIps: []
+      retryLimit: -1
 
 logging:
   level:
