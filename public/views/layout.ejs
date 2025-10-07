@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - ZenitsuBot</title>
+  <meta name="description" content="ZenitsuBot - Your all-in-one Discord bot for anime, games, economy, music, and more!">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <header>
+    <nav class="container">
+      <a href="/" class="logo">
+        <span class="logo-icon">⚡</span>
+        <span>ZenitsuBot</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="/">Home</a></li>
+        <li><a href="/terms-of-service">Terms</a></li>
+        <li><a href="/privacy-policy">Privacy</a></li>
+        <% if (user) { %>
+          <li><a href="/dashboard" class="btn btn-primary">Dashboard</a></li>
+          <% if (user.avatar) { %>
+            <li>
+              <img src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=128" 
+                   alt="<%= user.username %>" 
+                   class="user-avatar-small"
+                   title="<%= user.username %>">
+            </li>
+          <% } %>
+          <li><a href="/logout" class="btn btn-danger">Logout</a></li>
+        <% } else { %>
+          <li><a href="/auth/login" class="btn btn-discord">Login with Discord</a></li>
+        <% } %>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <%- body %>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div class="footer-content">
+        <p>&copy; 2025 ZenitsuBot. All rights reserved.</p>
+        <ul class="footer-links">
+          <li><a href="/terms-of-service">Terms of Service</a></li>
+          <li><a href="/privacy-policy">Privacy Policy</a></li>
+          <li><a href="/verify-user">Verify Account</a></li>
+        </ul>
+      </div>
+    </div>
+  </footer>
+</body>
+</html>
+

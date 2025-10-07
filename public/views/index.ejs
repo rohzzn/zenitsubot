@@ -1,0 +1,59 @@
+<section class="hero">
+  <div class="container">
+    <h1><span class="highlight">Zenitsu</span>Bot</h1>
+    <p>Your all-in-one Discord bot featuring anime tracking, economy system, fun games, music playback, and powerful moderation tools!</p>
+    <div class="hero-buttons">
+      <% if (user) { %>
+        <a href="/dashboard" class="btn btn-primary">Go to Dashboard</a>
+      <% } else { %>
+        <a href="/auth/login" class="btn btn-discord">Login with Discord</a>
+      <% } %>
+      <a href="https://discord.com/oauth2/authorize?client_id=766218598913146901&permissions=8&scope=bot%20applications.commands" target="_blank" class="btn btn-secondary">Add to Server</a>
+      <a href="https://discord.gg/h2y7FnH4bp" target="_blank" class="btn btn-outline">Support Server</a>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="container">
+    <h2>✨ Features</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📺</div>
+        <h3>Anime Tracking</h3>
+        <p>Search anime, get notifications for new episodes, track airing schedules, and discover new series.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">💰</div>
+        <h3>Economy System</h3>
+        <p>Work, earn, and trade virtual currency. Build your wealth with daily rewards, shop items, and compete on leaderboards.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">🎮</div>
+        <h3>Games & Fun</h3>
+        <p>Play blackjack, slots, dice games, and more. Check game stats, search for games, and have fun with reaction commands.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">🎵</div>
+        <h3>Music Player</h3>
+        <p>High-quality music streaming powered by Lavalink. Play from YouTube, Spotify, and more with full queue management.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <h3>Moderation</h3>
+        <p>Powerful moderation tools including kick, ban, mute, and message purge to keep your server safe.</p>
+      </div>
+      
+      <div class="feature-card">
+        <div class="feature-icon">⚙️</div>
+        <h3>Utilities</h3>
+        <p>User info, server info, avatars, and more helpful utilities to manage your Discord server.</p>
+      </div>
+    </div>
+  </div>
+</section>
+

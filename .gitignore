@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*
+*.log
+coverage/
+*.sqlite
+*.db
+prisma/*.db
+prisma/*.db-journal
+.DS_Store
+.turbo/
+.pnpm-store/
+.idea/
+.vscode/
+
+

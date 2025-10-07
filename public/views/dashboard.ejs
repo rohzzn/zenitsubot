@@ -1,0 +1,86 @@
+<section class="dashboard">
+  <div class="container">
+    <div class="dashboard-header">
+      <% if (user.avatar) { %>
+        <img 
+          src="https://cdn.discordapp.com/avatars/<%= user.id %>/<%= user.avatar %>.png?size=256" 
+          alt="<%= user.username %>" 
+          class="user-avatar"
+        >
+      <% } else { %>
+        <img 
+          src="https://cdn.discordapp.com/embed/avatars/<%= parseInt(user.discriminator || '0') % 5 %>.png" 
+          alt="<%= user.username %>" 
+          class="user-avatar"
+        >
+      <% } %>
+      <div class="user-info">
+        <h1>Welcome, <%= user.username %>!</h1>
+        <p>Discord ID: <%= user.id %></p>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-card">
+        <h3>📊 Your Stats</h3>
+        <div class="stat-item">
+          <span class="stat-label">Guilds Shared</span>
+          <span class="stat-value"><%= guilds ? guilds.length : 0 %></span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Account Created</span>
+          <span class="stat-value"><%= new Date((parseInt(user.id) / 4194304) + 1420070400000).toLocaleDateString() %></span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">User ID</span>
+          <span class="stat-value"><%= user.id %></span>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>💰 Economy</h3>
+        <% if (economy) { %>
+          <div class="stat-item">
+            <span class="stat-label">Balance</span>
+            <span class="stat-value">⚡ <%= economy.balance || 0 %></span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Bank</span>
+            <span class="stat-value">🏦 <%= economy.bank || 0 %></span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Total Wealth</span>
+            <span class="stat-value">💎 <%= (economy.balance || 0) + (economy.bank || 0) %></span>
+          </div>
+        <% } else { %>
+          <p style="color: var(--text-secondary);">Use economy commands in Discord to get started!</p>
+        <% } %>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>🔔 Anime Alerts</h3>
+        <% if (animeAlerts && animeAlerts.length > 0) { %>
+          <p style="color: var(--text-secondary); margin-bottom: 1rem;">You're tracking <%= animeAlerts.length %> anime series.</p>
+          <% animeAlerts.slice(0, 3).forEach(alert => { %>
+            <div class="stat-item">
+              <span class="stat-label"><%= alert.title %></span>
+              <span class="stat-value">Active</span>
+            </div>
+          <% }); %>
+        <% } else { %>
+          <p style="color: var(--text-secondary);">No anime alerts set up yet. Use <code>/alert</code> in Discord!</p>
+        <% } %>
+      </div>
+
+      <div class="dashboard-card">
+        <h3>🎮 Quick Actions</h3>
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <a href="https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=8&scope=bot%20applications.commands" target="_blank" class="btn btn-primary" style="text-align: center;">Add to Server</a>
+          <a href="/verify-user" class="btn btn-secondary" style="text-align: center;">Verify Account</a>
+          <a href="/logout" class="btn btn-danger" style="text-align: center;">Logout</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
