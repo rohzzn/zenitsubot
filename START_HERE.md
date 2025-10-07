@@ -4,11 +4,11 @@
 
 **BOT:** ✅ Running on your server  
 **BACKEND API:** ✅ Running on `http://74.140.131.120`  
-**WEBSITE:** ⏳ Ready to deploy to GitHub Pages
+**WEBSITE:** ⏳ Ready to deploy to GitHub Pages with custom domain `zenitsu.rohan.host`
 
 ---
 
-## 🎯 WHAT YOU NEED TO DO NOW
+## 🎯 STEP-BY-STEP SETUP
 
 ### 1️⃣ Deploy Website to GitHub (5 minutes)
 
@@ -24,33 +24,42 @@ git push -u origin main
 
 **Replace `YOUR_USERNAME` with your GitHub username!**
 
-Then:
-1. Go to: https://github.com/YOUR_USERNAME/zenitsubot-website/settings/pages
+Then enable GitHub Pages:
+1. Go to: `https://github.com/YOUR_USERNAME/zenitsubot-website/settings/pages`
 2. Under **Source**, select **main** branch
 3. Click **Save**
-4. Wait 2 minutes
-5. Your site: `https://YOUR_USERNAME.github.io/zenitsubot-website/`
 
 ---
 
-### 2️⃣ Update Backend CORS
+### 2️⃣ Configure Custom Domain on GitHub
 
-Edit this file: `src/web/server.ts`
+Still in GitHub Pages settings:
 
-Find line 27 and change:
-```typescript
-'https://YOUR_GITHUB_USERNAME.github.io',  // ← Put your GitHub username here
-```
-
-Then rebuild:
-```bash
-npm run build
-docker-compose restart bot
-```
+1. Under **Custom domain**, enter: `zenitsu.rohan.host`
+2. Click **Save**
+3. ✅ Check **Enforce HTTPS** (wait 1-2 minutes for it to appear)
+4. Done!
 
 ---
 
-### 3️⃣ Update Discord Developer Portal
+### 3️⃣ Update DNS on Porkbun
+
+Go to: https://porkbun.com/account/domainsSpeedy (your domain DNS settings)
+
+**For subdomain `zenitsu.rohan.host`:**
+
+Delete the old A record and add a CNAME record:
+
+- **Type:** `CNAME`
+- **Host:** `zenitsu` (or `zenitsu.rohan.host`)
+- **Answer:** `YOUR_GITHUB_USERNAME.github.io`
+- **TTL:** `600`
+
+Click **Add**
+
+---
+
+### 4️⃣ Update Discord Developer Portal
 
 Go to: https://discord.com/developers/applications/766218598913146901
 
@@ -58,9 +67,9 @@ Go to: https://discord.com/developers/applications/766218598913146901
 - Add Redirect: `http://74.140.131.120/auth/callback`
 
 **In General Information:**
-- Terms URL: `https://YOUR_USERNAME.github.io/zenitsubot-website/terms.html`
-- Privacy URL: `https://YOUR_USERNAME.github.io/zenitsubot-website/privacy.html`
-- Interactions URL: `http://74.140.131.120/api/interactions`
+- **Terms URL:** `https://zenitsu.rohan.host/terms.html`
+- **Privacy URL:** `https://zenitsu.rohan.host/privacy.html`
+- **Interactions URL:** `http://74.140.131.120/api/interactions`
 
 Click **Save Changes**
 
@@ -68,14 +77,17 @@ Click **Save Changes**
 
 ## 🎉 DONE! Test It
 
-### Test Bot:
-Open Discord and type: `/ping`
+Wait 5-10 minutes for DNS to propagate, then:
 
 ### Test Website:
-1. Go to: `https://YOUR_USERNAME.github.io/zenitsubot-website/`
-2. Click "Add to Server" - works?
-3. Click "Login with Discord" - works?
-4. You should see your dashboard!
+1. Go to: **https://zenitsu.rohan.host**
+2. Should show your beautiful website! ✨
+3. Click **"Add to Server"** - works?
+4. Click **"Login with Discord"** - works?
+5. You should see your dashboard!
+
+### Test Bot:
+Open Discord and type: `/ping`
 
 ---
 
@@ -83,11 +95,16 @@ Open Discord and type: `/ping`
 
 ```
 zenitsubot/
-├── src/              ← Bot source code
-├── gh-pages/         ← Website files (deploy this to GitHub)
-├── docker-compose.yml
-├── .env              ← Your secrets (already configured)
-└── START_HERE.md     ← You are here!
+├── START_HERE.md          ← You are here!
+├── docker-compose.yml     ← Docker config
+├── .env                   ← Configured ✅
+├── src/                   ← Bot source code
+├── gh-pages/              ← Website files
+│   ├── CNAME              ← Custom domain config
+│   ├── index.html
+│   ├── app.js
+│   └── style.css
+└── dist/                  ← Compiled code
 ```
 
 ---
@@ -104,12 +121,6 @@ docker-compose logs bot --tail=50
 # Restart bot
 docker-compose restart bot
 
-# Stop everything
-docker-compose down
-
-# Start everything
-docker-compose up -d
-
 # Rebuild after code changes
 npm run build && docker-compose restart bot
 ```
@@ -118,32 +129,43 @@ npm run build && docker-compose restart bot
 
 ## 🔗 Important Links
 
-- **Bot Invite**: https://discord.com/oauth2/authorize?client_id=766218598913146901&permissions=8&scope=bot%20applications.commands
-- **Support Server**: https://discord.gg/h2y7FnH4bp
-- **Discord Dev Portal**: https://discord.com/developers/applications/766218598913146901
+- **Your Website:** https://zenitsu.rohan.host
+- **Bot Invite:** https://discord.com/oauth2/authorize?client_id=766218598913146901&permissions=8&scope=bot%20applications.commands
+- **Support Server:** https://discord.gg/h2y7FnH4bp
+- **Discord Dev Portal:** https://discord.com/developers/applications/766218598913146901
+- **Porkbun DNS:** https://porkbun.com/account/domainsSpeedy
 
 ---
 
-## ❓ Problems?
+## ❓ Troubleshooting
 
-### Bot not responding:
-```bash
-docker-compose logs bot --tail=50
-```
+### Website shows 404:
+- Wait 5-10 minutes for DNS to propagate
+- Check GitHub Pages settings has `zenitsu.rohan.host` as custom domain
+- Check CNAME file exists in gh-pages folder
 
-### Website not loading:
-- Make sure you updated `src/web/server.ts` with your GitHub username
-- Rebuild: `npm run build && docker-compose restart bot`
+### DNS not working:
+- Make sure you added CNAME record on Porkbun pointing to `YOUR_USERNAME.github.io`
+- Wait up to 1 hour for DNS propagation
+- Test with: `nslookup zenitsu.rohan.host 8.8.8.8`
 
-### Can't login on website:
-- Check Discord Dev Portal has correct redirect URL
+### Can't login:
+- Make sure Discord OAuth has `http://74.140.131.120/auth/callback`
 - Check `.env` has: `OAUTH_CALLBACK_URL=http://74.140.131.120/auth/callback`
+
+### CORS errors:
+- Backend already configured for `zenitsu.rohan.host` ✅
+- If issues, check browser console (F12)
 
 ---
 
 ## 🎊 That's It!
 
-Follow steps 1-3 above and you're done!
+Your setup:
+- ✅ **Frontend:** `https://zenitsu.rohan.host` (GitHub Pages)
+- ✅ **Backend:** `http://74.140.131.120` (Your server)
+- ✅ **Bot:** Running in Discord
+
+Follow steps 1-4 above and you're live! 🚀
 
 Questions? Join: https://discord.gg/h2y7FnH4bp
-

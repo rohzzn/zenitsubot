@@ -24,11 +24,11 @@ export function createWebServer() {
   // CORS for GitHub Pages frontend
   app.use(cors({
     origin: [
-      'https://YOUR_GITHUB_USERNAME.github.io', // Update this with your GitHub username
+      'https://zenitsu.rohan.host', // Custom domain on GitHub Pages
+      'http://zenitsu.rohan.host',
       'http://localhost:3000',
       'http://localhost:5500',
-      'http://192.168.1.232',
-      'http://zenitsu.rohan.host'
+      'http://192.168.1.232'
     ],
     credentials: true
   }));

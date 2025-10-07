@@ -1,5 +1,5 @@
 // Configuration - Your backend API URL
-const API_BASE_URL = 'http://74.140.131.120';
+const API_BASE_URL = 'http://74.140.131.120'; // Backend server
 
 // Check if user is logged in
 async function checkAuth() {
