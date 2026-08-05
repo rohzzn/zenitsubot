@@ -3,7 +3,7 @@ import { EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType 
 import { ZENITSU_THEME } from '../../utils/constants.js';
 import {
   CATEGORY_LABELS,
-  CATEGORY_ORDER,
+  POPULATED_CATEGORIES,
   VISIBLE_COMMAND_COUNT,
   visibleCommands,
   type CommandCategory,
@@ -38,14 +38,14 @@ function overviewEmbed(): EmbedBuilder {
     .setColor(ZENITSU_THEME.PRIMARY)
     .setTitle('Zenitsu — Command Reference')
     .setDescription(
-      `**${VISIBLE_COMMAND_COUNT} commands** across ${CATEGORY_ORDER.length} categories.\n` +
+      `**${VISIBLE_COMMAND_COUNT} commands** across ${POPULATED_CATEGORIES.length} categories.\n` +
         'Pick a category below to see its commands and what each one does.',
     )
     .setFooter({ text: 'This menu is only visible to you and expires after 5 minutes' });
 
   // Two columns of category summaries, so the overview stays scannable.
-  const half = Math.ceil(CATEGORY_ORDER.length / 2);
-  const columns = [CATEGORY_ORDER.slice(0, half), CATEGORY_ORDER.slice(half)];
+  const half = Math.ceil(POPULATED_CATEGORIES.length / 2);
+  const columns = [POPULATED_CATEGORIES.slice(0, half), POPULATED_CATEGORIES.slice(half)];
 
   for (const column of columns) {
     embed.addFields({
@@ -93,7 +93,7 @@ function categoryMenu(selected: string): ActionRowBuilder<StringSelectMenuBuilde
         description: 'All categories at a glance',
         default: selected === OVERVIEW,
       },
-      ...CATEGORY_ORDER.map((category) => {
+      ...POPULATED_CATEGORIES.map((category) => {
         const { label } = CATEGORY_LABELS[category];
         return {
           label,

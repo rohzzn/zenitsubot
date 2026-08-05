@@ -63,7 +63,6 @@ import { timestamp, regex } from './slash/dev/tools.js';
 // AI
 import { ask } from './slash/ai/ask.js';
 import { aimodel } from './slash/ai/aimodel.js';
-import { search } from './slash/ai/search.js';
 
 // Owner
 import { status } from './slash/owner/status.js';
@@ -720,53 +719,6 @@ export const COMMANDS: CommandDefinition[] = [
   // --------------------------------------------------------------------- AI
   {
     builder: new SlashCommandBuilder()
-      .setName('ask')
-      .setDescription('Ask a question, answered from live web results')
-      .addStringOption((o) =>
-        o.setName('question').setDescription('What do you want to know?').setRequired(true),
-      )
-      .addBooleanOption((o) =>
-        o.setName('search').setDescription('Search the web first, defaults to true'),
-      ),
-    handler: ask,
-    category: 'ai',
-    summary: 'Ask a question, answered from live web results',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('search')
-      .setDescription('Search the web')
-      .addStringOption((o) =>
-        o.setName('query').setDescription('What to search for').setRequired(true),
-      )
-      .addStringOption((o) =>
-        o
-          .setName('category')
-          .setDescription('Narrow the search')
-          .addChoices(
-            { name: 'General', value: 'general' },
-            { name: 'News', value: 'news' },
-            { name: 'IT', value: 'it' },
-            { name: 'Science', value: 'science' },
-          ),
-      )
-      .addStringOption((o) =>
-        o
-          .setName('recency')
-          .setDescription('Only recent results')
-          .addChoices(
-            { name: 'Past day', value: 'day' },
-            { name: 'Past week', value: 'week' },
-            { name: 'Past month', value: 'month' },
-            { name: 'Past year', value: 'year' },
-          ),
-      ),
-    handler: search,
-    category: 'ai',
-    summary: 'Search the web',
-  },
-  {
-    builder: new SlashCommandBuilder()
       .setName('aimodel')
       .setDescription('View or change the AI model')
       .addSubcommand((sub) => sub.setName('current').setDescription('Show the model in use'))
@@ -909,5 +861,13 @@ export function commandsByCategory(category: CommandCategory): CommandDefinition
 export function visibleCommands(category: CommandCategory): CommandDefinition[] {
   return commandsByCategory(category).filter((c) => !c.hidden);
 }
+
+/**
+ * Categories that actually have something to show. Removing commands used to
+ * leave empty categories listed in /help with a count of zero.
+ */
+export const POPULATED_CATEGORIES: CommandCategory[] = CATEGORY_ORDER.filter(
+  (category) => visibleCommands(category).length > 0,
+);
 
 export const VISIBLE_COMMAND_COUNT = COMMANDS.filter((c) => !c.hidden).length;

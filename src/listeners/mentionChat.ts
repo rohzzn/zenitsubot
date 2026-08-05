@@ -86,9 +86,18 @@ export function registerMentionChatListener(client: Client) {
     const isDm = message.channel.type === ChannelType.DM;
     const mentioned = message.mentions.users.has(client.user.id);
 
+    // Replying to one of the bot's messages continues the conversation without
+    // needing another mention. Discord includes content on a reply to the bot
+    // for the same reason it does for mentions.
+    let isReplyToBot = false;
+    if (!mentioned && !isDm && message.reference?.messageId) {
+      const parent = await message.fetchReference().catch(() => null);
+      isReplyToBot = parent?.author.id === client.user.id;
+    }
+
     // Discord delivers message content without the privileged intent only for
-    // DMs and messages that mention the bot, which is exactly what we handle.
-    if (!mentioned && !isDm) return;
+    // DMs, mentions, and replies to the bot, which is exactly what we handle.
+    if (!mentioned && !isDm && !isReplyToBot) return;
     if (isBlacklisted(message.author.id, message.guildId)) return;
 
     const question = stripMention(message.content, client.user.id);
