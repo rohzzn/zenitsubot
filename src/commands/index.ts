@@ -67,6 +67,10 @@ import { dns, ssl } from './slash/dev/network.js';
 import { base64, hash, uuid, jwt } from './slash/dev/encode.js';
 import { timestamp, httpStatus, regex, color } from './slash/dev/tools.js';
 
+// AI
+import { ask, aimodels } from './slash/ai/ask.js';
+import { search } from './slash/ai/search.js';
+
 // Owner
 import { status } from './slash/owner/status.js';
 import { logs } from './slash/owner/logs.js';
@@ -83,6 +87,7 @@ export type CommandCategory =
   | 'fun'
   | 'gaming'
   | 'dev'
+  | 'ai'
   | 'admin'
   | 'owner';
 
@@ -822,7 +827,62 @@ export const COMMANDS: CommandDefinition[] = [
     summary: 'Convert a hex colour and check contrast',
   },
 
-  // ------------------------------------------------------------------ Admin
+  // --------------------------------------------------------------------- AI
+  {
+    builder: new SlashCommandBuilder()
+      .setName('ask')
+      .setDescription('Ask a question, answered from live web results')
+      .addStringOption((o) =>
+        o.setName('question').setDescription('What do you want to know?').setRequired(true),
+      )
+      .addBooleanOption((o) =>
+        o.setName('search').setDescription('Search the web first, defaults to true'),
+      ),
+    handler: ask,
+    category: 'ai',
+    summary: 'Ask a question, answered from live web results',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('search')
+      .setDescription('Search the web')
+      .addStringOption((o) =>
+        o.setName('query').setDescription('What to search for').setRequired(true),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('category')
+          .setDescription('Narrow the search')
+          .addChoices(
+            { name: 'General', value: 'general' },
+            { name: 'News', value: 'news' },
+            { name: 'IT', value: 'it' },
+            { name: 'Science', value: 'science' },
+          ),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('recency')
+          .setDescription('Only recent results')
+          .addChoices(
+            { name: 'Past day', value: 'day' },
+            { name: 'Past week', value: 'week' },
+            { name: 'Past month', value: 'month' },
+            { name: 'Past year', value: 'year' },
+          ),
+      ),
+    handler: search,
+    category: 'ai',
+    summary: 'Search the web',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('aimodels')
+      .setDescription('List the free AI models available'),
+    handler: aimodels,
+    category: 'ai',
+    summary: 'List the free AI models available',
+  },
 
   // ------------------------------------------------------------------ Owner
   {
@@ -915,6 +975,7 @@ export const CATEGORY_LABELS: Record<CommandCategory, { label: string; blurb: st
   economy: { label: 'Economy', blurb: 'Coins, levels and the shop' },
   anime: { label: 'Anime', blurb: 'Search MyAnimeList and track new episodes' },
   dev: { label: 'Developer', blurb: 'Package lookups, encoding and network tools' },
+  ai: { label: 'AI & Search', blurb: 'Ask questions answered from live web results' },
   utility: { label: 'Utility', blurb: 'Everyday helpers and reminders' },
   moderation: { label: 'Moderation', blurb: 'Warnings, timeouts, bans and purges' },
   gaming: { label: 'Gaming', blurb: 'Steam and free game giveaways' },
@@ -924,6 +985,7 @@ export const CATEGORY_LABELS: Record<CommandCategory, { label: string; blurb: st
 
 /** Display order in /help. Owner is excluded because its commands are hidden. */
 export const CATEGORY_ORDER: CommandCategory[] = [
+  'ai',
   'music',
   'fun',
   'economy',

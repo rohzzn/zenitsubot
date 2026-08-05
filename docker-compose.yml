@@ -10,6 +10,8 @@ services:
       # server; Shoukaku then sits idle instead of retrying.
       lavalink:
         condition: service_healthy
+      searxng:
+        condition: service_started
     restart: unless-stopped
     volumes:
       - ./prisma:/app/prisma
@@ -42,6 +44,30 @@ services:
       timeout: 3s
       retries: 20
       start_period: 10s
+    networks:
+      - zenitsu-network
+
+  # Self-hosted metasearch. Public SearXNG instances rate-limit hard or disable
+  # the JSON format outright, and DuckDuckGo serves a captcha to servers, so
+  # running our own is the only reliable keyless search. Never published on a
+  # host port: only the bot reaches it, over the internal network.
+  searxng:
+    image: searxng/searxng:latest
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=4
+    expose:
+      - "8080"
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    restart: unless-stopped
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
     networks:
       - zenitsu-network
 

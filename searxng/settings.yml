@@ -1,0 +1,37 @@
+# SearXNG configuration for ZenitsuBot's /ask and /search commands.
+#
+# This instance is private to the docker network and is never exposed on a
+# published port, so the limiter and bot protection are off: the only client is
+# the bot itself, and rate limiting it would defeat the purpose of self hosting.
+
+use_default_settings: true
+
+server:
+  secret_key: "9a5717b061b7f27480bb6465c752b680aeeb94a8dcef98f214ad540446df2936"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+
+search:
+  safe_search: 1
+  # The bot talks to this over JSON; html stays enabled for manual debugging.
+  formats:
+    - html
+    - json
+
+engines:
+  # Engines that reliably answer without an API key.
+  - name: wikipedia
+    disabled: false
+  - name: duckduckgo
+    disabled: false
+  - name: brave
+    disabled: false
+  - name: startpage
+    disabled: false
+
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 12.0
+  pool_connections: 100
+  pool_maxsize: 20
