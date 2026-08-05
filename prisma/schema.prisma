@@ -71,21 +71,6 @@ model Blacklist {
   createdAt DateTime @default(now())
 }
 
-model AnimeAlert {
-  id            String   @id @default(cuid())
-  guildId       String
-  channelId     String
-  userId        String   // Added for user-specific alerts
-  animeId       String   // MyAnimeList ID or name
-  animeName     String   // Renamed from animeName
-  title         String   @default("") // Display title
-  lastEpisode   Int      @default(0)
-  createdAt     DateTime @default(now())
-  
-  @@unique([guildId, animeId])
-  @@index([userId])
-}
-
 model User {
   id                    String   @id @default(cuid())
   userId                String   @unique  // Discord user ID

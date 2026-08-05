@@ -36,12 +36,7 @@ import { purge } from './slash/mod/purge.js';
 import { warn, warnings } from './slash/mod/warn.js';
 
 // Anime
-import { animesearch } from './slash/anime/search.js';
-import { animeinfo } from './slash/anime/info.js';
-import { animecharacter } from './slash/anime/character.js';
-import { animeupcoming } from './slash/anime/upcoming.js';
 import { animairing } from './slash/anime/airing.js';
-import { animealert } from './slash/anime/alert.js';
 
 // Economy
 import { balance } from './slash/economy/balance.js';
@@ -63,7 +58,6 @@ import { dice } from './slash/fun/dice.js';
 import { animequote } from './slash/fun/animequote.js';
 import { icebreaker } from './slash/fun/icebreaker.js';
 import { meme } from './slash/fun/meme.js';
-import { reactionCommands } from './slash/fun/reactions.js';
 
 // Gaming
 import { steamsearch } from './slash/games/steamsearch.js';
@@ -126,32 +120,6 @@ export interface CommandDefinition {
   summary: string;
   /** Hidden from /help. Owner-only operator commands set this. */
   hidden?: boolean;
-}
-
-function reactionDefinitions(): CommandDefinition[] {
-  const summaries: Record<string, string> = {
-    hug: 'Hug someone with an anime GIF',
-    kiss: 'Kiss someone with an anime GIF',
-    cuddle: 'Cuddle someone with an anime GIF',
-    pat: 'Pat someone with an anime GIF',
-    slap: 'Slap someone with an anime GIF',
-    punch: 'Punch someone with an anime GIF',
-  };
-
-  return reactionCommands.map((handler) => {
-    const name = handler.data.name;
-    const summary = summaries[name] ?? `React with a ${name} GIF`;
-
-    return {
-      builder: new SlashCommandBuilder()
-        .setName(name)
-        .setDescription(summary)
-        .addUserOption((o) => o.setName('user').setDescription(`User to ${name} (optional)`)),
-      handler,
-      category: 'fun' as const,
-      summary,
-    };
-  });
 }
 
 export const COMMANDS: CommandDefinition[] = [
@@ -461,71 +429,11 @@ export const COMMANDS: CommandDefinition[] = [
   // ------------------------------------------------------------------ Anime
   {
     builder: new SlashCommandBuilder()
-      .setName('animesearch')
-      .setDescription('Search for anime on MyAnimeList')
-      .addStringOption((o) => o.setName('query').setDescription('Anime name').setRequired(true)),
-    handler: animesearch,
-    category: 'anime',
-    summary: 'Search for anime on MyAnimeList',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('animeinfo')
-      .setDescription('Get detailed anime info with ratings and reviews')
-      .addStringOption((o) => o.setName('name').setDescription('Anime name').setRequired(true)),
-    handler: animeinfo,
-    category: 'anime',
-    summary: 'Detailed anime info with ratings and reviews',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('animecharacter')
-      .setDescription('Look up an anime character')
-      .addStringOption((o) => o.setName('name').setDescription('Character name').setRequired(true)),
-    handler: animecharacter,
-    category: 'anime',
-    summary: 'Look up an anime character',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('animeupcoming')
-      .setDescription('See upcoming anime episodes'),
-    handler: animeupcoming,
-    category: 'anime',
-    summary: 'See upcoming anime episodes',
-  },
-  {
-    builder: new SlashCommandBuilder()
       .setName('animairing')
       .setDescription('View anime airing this season'),
     handler: animairing,
     category: 'anime',
     summary: 'View anime airing this season',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('animealert')
-      .setDescription('Manage new-episode alerts')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) =>
-        sub
-          .setName('add')
-          .setDescription('Track an anime for new episodes')
-          .addStringOption((o) => o.setName('name').setDescription('Anime name').setRequired(true))
-          .addChannelOption((o) =>
-            o.setName('channel').setDescription('Channel for alerts').setRequired(true),
-          ),
-      )
-      .addSubcommand((sub) =>
-        sub
-          .setName('remove')
-          .setDescription('Stop tracking an anime')
-          .addStringOption((o) => o.setName('name').setDescription('Anime name').setRequired(true)),
-      )
-      .addSubcommand((sub) => sub.setName('list').setDescription('List all tracked anime')),
-    handler: animealert,
-    category: 'anime',
-    summary: 'Manage new-episode alerts',
   },
 
   // ---------------------------------------------------------------- Economy
@@ -723,7 +631,6 @@ export const COMMANDS: CommandDefinition[] = [
     category: 'fun',
     summary: 'Get a random meme',
   },
-  ...reactionDefinitions(),
 
   // ----------------------------------------------------------------- Gaming
   {

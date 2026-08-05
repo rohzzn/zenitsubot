@@ -13,19 +13,11 @@ export const animairing = {
     try {
       await interaction.deferReply();
 
-      // Get current season and year
-      const now = new Date();
-      const month = now.getMonth() + 1;
-      const year = now.getFullYear();
-
-      let season = 'winter';
-      if (month >= 4 && month <= 6) season = 'spring';
-      else if (month >= 7 && month <= 9) season = 'summer';
-      else if (month >= 10 && month <= 12) season = 'fall';
-
-      // Fetch current season anime from Jikan API
-      const url = `https://api.jikan.moe/v4/seasons/${year}/${season}`;
-      const response = await fetch(url);
+      // Use /seasons/now rather than computing the season and requesting
+      // /seasons/{year}/{season}: it is what "airing this season" actually
+      // means, and it is the only Jikan season route that currently responds
+      // (the dated form returns 504).
+      const response = await fetch('https://api.jikan.moe/v4/seasons/now');
 
       if (!response.ok) {
         await interaction.editReply(`Failed to fetch airing anime.`);
@@ -46,11 +38,18 @@ export const animairing = {
         .sort((a: any, b: any) => (b.score || 0) - (a.score || 0))
         .slice(0, 10);
 
+      // /seasons/now does not label the season at the top level, so take it
+      // from the entries themselves.
+      const labelled = animeList.find((a: any) => a.season && a.year);
+      const seasonLabel = labelled
+        ? `${labelled.season.charAt(0).toUpperCase()}${labelled.season.slice(1)} ${labelled.year} Season`
+        : 'This Season';
+
       const embed = new EmbedBuilder()
         .setColor(ZENITSU_THEME.PRIMARY)
         .setTitle(`Currently Airing Anime`)
         .setDescription(
-          `**${season.charAt(0).toUpperCase() + season.slice(1)} ${year} Season**\n\n` +
+          `**${seasonLabel}**\n\n` +
             topAiring
               .map((anime: any, index: number) => {
                 const score = anime.score ? `${anime.score}` : 'N/A';

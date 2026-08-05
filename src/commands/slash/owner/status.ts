@@ -51,15 +51,15 @@ export const status = {
     let dbSummary: string;
     try {
       const prisma = getPrisma();
-      const [economy, alerts, reminders, warnings] = await Promise.all([
+      const [economy, reminders, warnings, reactionRoles] = await Promise.all([
         prisma.userEconomy.count(),
-        prisma.animeAlert.count(),
         prisma.reminder.count({ where: { completed: false } }),
         prisma.warning.count(),
+        prisma.reactionRole.count(),
       ]);
       dbSummary =
-        `${economy} economy profiles\n${alerts} anime alerts\n` +
-        `${reminders} pending reminders\n${warnings} warnings`;
+        `${economy} economy profiles\n${reminders} pending reminders\n` +
+        `${warnings} warnings\n${reactionRoles} reaction roles`;
     } catch (err) {
       dbSummary = `Unreachable: ${err instanceof Error ? err.message : 'unknown error'}`;
     }

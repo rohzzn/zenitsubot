@@ -69,7 +69,6 @@ async function main() {
   registerReactionRoleListener(client);
   registerButtonHandler(client);
 
-  const { startAnimeChecker } = await import('./services/animeChecker.js');
   const { startReminderScheduler } = await import('./services/reminderScheduler.js');
 
   process.on('unhandledRejection', (reason) => {
@@ -80,7 +79,6 @@ async function main() {
   });
 
   client.once('ready', () => {
-    startAnimeChecker(client);
     startReminderScheduler(client);
   });
 

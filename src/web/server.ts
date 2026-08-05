@@ -91,14 +91,9 @@ export function createWebServer() {
         select: { balance: true, bank: true },
       });
 
-      // Fetch user's anime alerts
-      const animeAlerts = await getPrisma()
-        .animeAlert.findMany({
-          where: { userId: user.id },
-          select: { title: true, animeId: true },
-          take: 5,
-        })
-        .catch(() => []);
+      // Anime alerts were removed along with the /animealert command; the
+      // dashboard template still guards on this, so hand it an empty list.
+      const animeAlerts: Array<{ title: string; animeId: string }> = [];
 
       const dashboardContent = readFileSync(
         path.join(__dirname, '../../public/views/dashboard.ejs'),
