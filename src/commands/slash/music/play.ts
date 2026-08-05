@@ -1,22 +1,24 @@
 import type { Client, ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { Node } from 'shoukaku';
+import { Constants } from 'shoukaku';
 import { shoukaku } from '../../../music/lavalink.js';
 import type { Track } from '../../../music/track.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import { logger } from '../../../services/logger.js';
 
-/** Lavalink node states; 2 is CONNECTED. */
-const NODE_CONNECTED = 2;
-
 /**
  * Picks a node that is actually connected. Taking the first node blindly means
  * a reconnecting node swallows the request and /play reports a bare failure.
+ *
+ * Uses Shoukaku's own enum rather than a literal: CONNECTED is 1, and 2 is
+ * DISCONNECTING, so a hardcoded 2 matches nothing and /play always reports the
+ * music server as unavailable.
  */
 function readyNode(): Node | null {
   if (!shoukaku) return null;
   for (const node of shoukaku.nodes.values()) {
-    if (node.state === NODE_CONNECTED) return node;
+    if (node.state === Constants.State.CONNECTED) return node;
   }
   return null;
 }

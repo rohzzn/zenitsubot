@@ -1,5 +1,6 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
 import { EmbedBuilder, version as djsVersion } from 'discord.js';
+import { Constants } from 'shoukaku';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import { shoukaku } from '../../../music/lavalink.js';
 import { getPrisma } from '../../../services/db.js';
@@ -40,7 +41,7 @@ export const status = {
       ? nodes
           .map((node) => {
             const stats = node.stats;
-            const state = node.state === 2 ? 'connected' : `state ${node.state}`;
+            const state = Constants.State[node.state] ?? `unknown (${node.state})`;
             return stats
               ? `${node.name}: ${state}, ${stats.players} players, load ${(stats.cpu.lavalinkLoad * 100).toFixed(1)}%`
               : `${node.name}: ${state}, no stats yet`;
