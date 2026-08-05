@@ -3,6 +3,9 @@ services:
     build: .
     env_file:
       - .env
+      # Layered second so it wins. Holds secrets and owner config; gitignored.
+      - path: .env.local
+        required: false
     depends_on:
       # Wait for Lavalink to actually accept connections, not just for its
       # container to start. The JVM takes several seconds to come up, and

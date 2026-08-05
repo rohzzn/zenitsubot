@@ -42,18 +42,12 @@ import { leaderboard } from './slash/economy/leaderboard.js';
 import { work } from './slash/economy/work.js';
 import { rob } from './slash/economy/rob.js';
 import { gift } from './slash/economy/gift.js';
-import { rank } from './slash/economy/rank.js';
-import { shop } from './slash/economy/shop.js';
-import { inventory } from './slash/economy/inventory.js';
 
 // Fun
-import { eightball } from './slash/fun/8ball.js';
 import { blackjack } from './slash/fun/blackjack.js';
 import { slots } from './slash/fun/slots.js';
 import { coinflip } from './slash/fun/coinflip.js';
 import { dice } from './slash/fun/dice.js';
-import { animequote } from './slash/fun/animequote.js';
-import { icebreaker } from './slash/fun/icebreaker.js';
 import { meme } from './slash/fun/meme.js';
 
 // Gaming
@@ -61,14 +55,14 @@ import { steamsearch } from './slash/games/steamsearch.js';
 import { freegames } from './slash/games/freegames.js';
 
 // Developer
-import { crates } from './slash/dev/packages.js';
 import { gh, ghuser } from './slash/dev/github.js';
 import { dns, ssl } from './slash/dev/network.js';
-import { base64, hash, uuid, jwt } from './slash/dev/encode.js';
-import { timestamp, httpStatus, regex, color } from './slash/dev/tools.js';
+import { base64, hash, jwt } from './slash/dev/encode.js';
+import { timestamp, regex } from './slash/dev/tools.js';
 
 // AI
-import { ask, aimodels } from './slash/ai/ask.js';
+import { ask } from './slash/ai/ask.js';
+import { aimodel } from './slash/ai/aimodel.js';
 import { search } from './slash/ai/search.js';
 
 // Owner
@@ -482,49 +476,8 @@ export const COMMANDS: CommandDefinition[] = [
     category: 'economy',
     summary: 'Send coins to another user',
   },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('rank')
-      .setDescription('View a rank card')
-      .addUserOption((o) => o.setName('user').setDescription('User to view')),
-    handler: rank,
-    category: 'economy',
-    summary: 'View a rank card',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('shop')
-      .setDescription('Browse and purchase items')
-      .addStringOption((o) =>
-        o
-          .setName('action')
-          .setDescription('What to do')
-          .addChoices({ name: 'List Items', value: 'list' }, { name: 'Buy Item', value: 'buy' }),
-      )
-      .addStringOption((o) => o.setName('item').setDescription('Item ID to purchase')),
-    handler: shop,
-    category: 'economy',
-    summary: 'Browse and purchase items',
-  },
-  {
-    builder: new SlashCommandBuilder().setName('inventory').setDescription('View your owned items'),
-    handler: inventory,
-    category: 'economy',
-    summary: 'View your owned items',
-  },
 
   // -------------------------------------------------------------------- Fun
-  {
-    builder: new SlashCommandBuilder()
-      .setName('8ball')
-      .setDescription('Ask the magic 8-ball a question')
-      .addStringOption((o) =>
-        o.setName('question').setDescription('Your question').setRequired(true),
-      ),
-    handler: eightball,
-    category: 'fun',
-    summary: 'Ask the magic 8-ball a question',
-  },
   {
     builder: new SlashCommandBuilder()
       .setName('blackjack')
@@ -597,22 +550,6 @@ export const COMMANDS: CommandDefinition[] = [
     summary: 'Roll dice for a multiplier payout',
   },
   {
-    builder: new SlashCommandBuilder()
-      .setName('animequote')
-      .setDescription('Get a random anime quote'),
-    handler: animequote,
-    category: 'fun',
-    summary: 'Get a random anime quote',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('icebreaker')
-      .setDescription('Get a random conversation starter'),
-    handler: icebreaker,
-    category: 'fun',
-    summary: 'Get a random conversation starter',
-  },
-  {
     builder: new SlashCommandBuilder().setName('meme').setDescription('Get a random meme'),
     handler: meme,
     category: 'fun',
@@ -652,15 +589,6 @@ export const COMMANDS: CommandDefinition[] = [
   },
 
   // -------------------------------------------------------------- Developer
-  {
-    builder: new SlashCommandBuilder()
-      .setName('crates')
-      .setDescription('Look up a Rust crate')
-      .addStringOption((o) => o.setName('crate').setDescription('Crate name').setRequired(true)),
-    handler: crates,
-    category: 'dev',
-    summary: 'Look up a Rust crate',
-  },
   {
     builder: new SlashCommandBuilder()
       .setName('gh')
@@ -755,17 +683,6 @@ export const COMMANDS: CommandDefinition[] = [
   },
   {
     builder: new SlashCommandBuilder()
-      .setName('uuid')
-      .setDescription('Generate random UUIDs')
-      .addIntegerOption((o) =>
-        o.setName('count').setDescription('How many (1-20)').setMinValue(1).setMaxValue(20),
-      ),
-    handler: uuid,
-    category: 'dev',
-    summary: 'Generate random UUIDs',
-  },
-  {
-    builder: new SlashCommandBuilder()
       .setName('jwt')
       .setDescription('Decode a JWT (signature is not verified)')
       .addStringOption((o) =>
@@ -788,22 +705,6 @@ export const COMMANDS: CommandDefinition[] = [
   },
   {
     builder: new SlashCommandBuilder()
-      .setName('http')
-      .setDescription('Explain an HTTP status code')
-      .addIntegerOption((o) =>
-        o
-          .setName('code')
-          .setDescription('Status code')
-          .setRequired(true)
-          .setMinValue(100)
-          .setMaxValue(599),
-      ),
-    handler: httpStatus,
-    category: 'dev',
-    summary: 'Explain an HTTP status code',
-  },
-  {
-    builder: new SlashCommandBuilder()
       .setName('regex')
       .setDescription('Test a regular expression against sample text')
       .addStringOption((o) => o.setName('pattern').setDescription('The pattern').setRequired(true))
@@ -814,17 +715,6 @@ export const COMMANDS: CommandDefinition[] = [
     handler: regex,
     category: 'dev',
     summary: 'Test a regular expression and show captures',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('color')
-      .setDescription('Convert a hex colour and check contrast')
-      .addStringOption((o) =>
-        o.setName('hex').setDescription('Hex colour, e.g. #5865F2').setRequired(true),
-      ),
-    handler: color,
-    category: 'dev',
-    summary: 'Convert a hex colour and check contrast',
   },
 
   // --------------------------------------------------------------------- AI
@@ -877,11 +767,25 @@ export const COMMANDS: CommandDefinition[] = [
   },
   {
     builder: new SlashCommandBuilder()
-      .setName('aimodels')
-      .setDescription('List the free AI models available'),
-    handler: aimodels,
+      .setName('aimodel')
+      .setDescription('View or change the AI model')
+      .addSubcommand((sub) => sub.setName('current').setDescription('Show the model in use'))
+      .addSubcommand((sub) => sub.setName('list').setDescription('List every free model'))
+      .addSubcommand((sub) =>
+        sub
+          .setName('set')
+          .setDescription('Switch to another model (owner only)')
+          .addStringOption((o) =>
+            o
+              .setName('model')
+              .setDescription('Start typing to search free models')
+              .setRequired(true)
+              .setAutocomplete(true),
+          ),
+      ),
+    handler: aimodel,
     category: 'ai',
-    summary: 'List the free AI models available',
+    summary: 'View or change the AI model',
   },
 
   // ------------------------------------------------------------------ Owner

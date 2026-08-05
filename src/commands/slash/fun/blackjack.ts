@@ -92,7 +92,7 @@ export const blackjack = {
 
     if (userEcon.coins < bet) {
       await interaction.reply({
-        content: `W-wait! You only have ${userEcon.coins} coins!`,
+        content: `You only have ${userEcon.coins} coins!`,
         ephemeral: true,
       });
       return;
@@ -137,7 +137,6 @@ export const blackjack = {
           inline: true,
         },
       ])
-      .setFooter({ text: 'Good luck!' })
       .setTimestamp();
 
     // Check for instant blackjack

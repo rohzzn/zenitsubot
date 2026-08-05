@@ -33,7 +33,7 @@ export const daily = {
 
       if (timeSince < 24 * 60 * 60 * 1000) {
         await interaction.reply({
-          content: `W-wait! You already claimed your daily! Come back in **${hoursLeft}h ${minutesLeft % 60}m**!`,
+          content: `Already claimed. Next daily in **${hoursLeft}h ${minutesLeft % 60}m**.`,
           ephemeral: true,
         });
         return;
@@ -89,7 +89,7 @@ export const daily = {
           inline: true,
         },
       ])
-      .setFooter({ text: 'Come back tomorrow for more! Global across all servers' })
+      .setFooter({ text: 'Resets every 24 hours' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });

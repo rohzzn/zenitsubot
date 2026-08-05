@@ -44,7 +44,7 @@ export const coinflip = {
 
     if (userEcon.coins < bet) {
       await interaction.reply({
-        content: `W-wait! You only have ${userEcon.coins.toLocaleString()} coins!`,
+        content: `You only have ${userEcon.coins.toLocaleString()} coins!`,
         ephemeral: true,
       });
       return;
@@ -99,7 +99,7 @@ export const coinflip = {
       embed.addFields([
         {
           name: `You Lost...`,
-          value: `Better luck next time!\n\n` + `**Lost:** -${bet.toLocaleString()}\n\u200b`,
+          value: `**Lost:** -${bet.toLocaleString()}\n\u200b`,
           inline: false,
         },
       ]);
@@ -118,7 +118,6 @@ export const coinflip = {
       },
     ]);
 
-    embed.setFooter({ text: '50/50 chance - Good luck!' });
     embed.setTimestamp();
 
     await interaction.reply({ embeds: [embed] });

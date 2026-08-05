@@ -1,4 +1,9 @@
-import type { Client, ChatInputCommandInteraction, RepliableInteraction } from 'discord.js';
+import type {
+  Client,
+  ChatInputCommandInteraction,
+  AutocompleteInteraction,
+  RepliableInteraction,
+} from 'discord.js';
 import { logger } from '../services/logger.js';
 import { isBlacklisted } from '../services/blacklist.js';
 
@@ -21,6 +26,23 @@ async function reportError(interaction: RepliableInteraction, content: string) {
 
 export function registerInteractionCreateListener(client: Client) {
   client.on('interactionCreate', async (interaction) => {
+    // Autocomplete arrives as its own interaction type and must be answered
+    // within 3 seconds, so it is handled before anything else.
+    if (interaction.isAutocomplete()) {
+      const command = client.commands?.get(interaction.commandName) as
+        | { autocomplete?: (i: AutocompleteInteraction) => Promise<void> }
+        | undefined;
+
+      if (!command?.autocomplete) return;
+
+      try {
+        await command.autocomplete(interaction);
+      } catch (err) {
+        logger.warn({ err, command: interaction.commandName }, 'Autocomplete failed');
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     if (isBlacklisted(interaction.user.id, interaction.guildId)) {
@@ -33,10 +55,7 @@ export function registerInteractionCreateListener(client: Client) {
     const command = client.commands?.get(interaction.commandName);
     if (!command) {
       logger.warn({ command: interaction.commandName }, 'Received unregistered command');
-      await reportError(
-        interaction,
-        'That command is no longer available. Discord may take up to an hour to stop showing it.',
-      );
+      await reportError(interaction, 'That command is no longer available.');
       return;
     }
 

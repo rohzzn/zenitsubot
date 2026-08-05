@@ -44,7 +44,7 @@ export const rob = {
       const timeLeft = cooldown - (now.getTime() - lastRob.getTime());
       const minutesLeft = Math.ceil(timeLeft / (1000 * 60));
       await interaction.reply({
-        content: `You're laying low. Wait **${minutesLeft} minutes** before robbing again.`,
+        content: `On cooldown. You can rob again in **${minutesLeft} minutes**.`,
         ephemeral: true,
       });
       return;

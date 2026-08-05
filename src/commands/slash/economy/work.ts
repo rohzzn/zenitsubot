@@ -45,7 +45,7 @@ export const work = {
       if (timeSince < cooldown) {
         const readyAt = Math.floor((userEcon.lastWork.getTime() + cooldown) / 1000);
         await interaction.reply({
-          content: `You're exhausted! You can work again <t:${readyAt}:R>.`,
+          content: `On cooldown. You can work again <t:${readyAt}:R>.`,
           ephemeral: true,
         });
         return;
@@ -85,7 +85,7 @@ export const work = {
           inline: true,
         },
       ])
-      .setFooter({ text: 'Keep grinding!' })
+
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });

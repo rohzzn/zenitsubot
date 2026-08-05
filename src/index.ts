@@ -47,6 +47,7 @@ async function main() {
   const { registerGuildCreateListener } = await import('./listeners/guildCreate.js');
   const { registerGuildDeleteListener } = await import('./listeners/guildDelete.js');
   const { registerVoiceStateListener } = await import('./listeners/voiceStateUpdate.js');
+  const { registerMentionChatListener } = await import('./listeners/mentionChat.js');
   const { default: registerButtonHandler } = await import('./listeners/buttonInteraction.js');
 
   registerReadyListener(client);
@@ -54,6 +55,7 @@ async function main() {
   registerGuildCreateListener(client);
   registerGuildDeleteListener(client);
   registerVoiceStateListener(client);
+  registerMentionChatListener(client);
   registerButtonHandler(client);
 
   const { startReminderScheduler } = await import('./services/reminderScheduler.js');

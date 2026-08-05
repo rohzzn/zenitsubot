@@ -35,11 +35,25 @@ async function main() {
   }
 
   const rest = new REST({ version: '10' }).setToken(token);
+  const body = COMMANDS.map((c) => c.builder.toJSON());
 
-  console.log(`Registering ${COMMANDS.length} slash commands...`);
-  await rest.put(Routes.applicationCommands(appId), {
-    body: COMMANDS.map((c) => c.builder.toJSON()),
-  });
+  console.log(`Registering ${COMMANDS.length} slash commands globally...`);
+  await rest.put(Routes.applicationCommands(appId), { body });
+
+  // Global commands can take up to an hour to appear in clients. Guild
+  // commands are visible immediately and shadow the global ones of the same
+  // name, so pushing to every guild the bot is in makes changes usable now
+  // without leaving duplicates behind.
+  const guilds = (await rest.get(Routes.userGuilds())) as Array<{ id: string; name: string }>;
+
+  for (const guild of guilds) {
+    try {
+      await rest.put(Routes.applicationGuildCommands(appId, guild.id), { body });
+      console.log(`  instant in ${guild.name}`);
+    } catch (err) {
+      console.error(`  could not register in ${guild.name}:`, (err as Error).message);
+    }
+  }
 
   console.log('\nRegistered:');
   // CATEGORY_ORDER drives /help and omits owner commands, so append them here.

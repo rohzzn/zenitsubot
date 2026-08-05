@@ -43,7 +43,7 @@ export const dice = {
 
     if (userEcon.coins < bet) {
       await interaction.reply({
-        content: `W-wait! You only have ${userEcon.coins.toLocaleString()} coins!`,
+        content: `You only have ${userEcon.coins.toLocaleString()} coins!`,
         ephemeral: true,
       });
       return;

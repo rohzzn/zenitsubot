@@ -2,13 +2,7 @@ import type { Client, ChatInputCommandInteraction } from 'discord.js';
 import { EmbedBuilder } from 'discord.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import { webSearch, asPromptContext, SearchUnavailableError } from '../../../services/search.js';
-import {
-  chat,
-  aiConfigured,
-  activeModel,
-  AiUnavailableError,
-  type ChatMessage,
-} from '../../../services/ai.js';
+import { chat, aiConfigured, AiUnavailableError, type ChatMessage } from '../../../services/ai.js';
 import { logger } from '../../../services/logger.js';
 
 const EMBED_DESCRIPTION_LIMIT = 4000;
@@ -116,52 +110,6 @@ export const ask = {
       }
       logger.error({ err, question }, 'Ask command failed');
       await interaction.editReply('Something went wrong answering that.').catch(() => {});
-    }
-  },
-};
-
-export const aimodels = {
-  data: { name: 'aimodels' },
-  category: 'ai',
-
-  async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
-    await interaction.deferReply({ ephemeral: true });
-
-    try {
-      const response = await fetch('https://openrouter.ai/api/v1/models');
-      const data = (await response.json()) as {
-        data?: Array<{
-          id: string;
-          context_length?: number;
-          pricing?: { prompt?: string; completion?: string };
-        }>;
-      };
-
-      const free = (data.data ?? [])
-        .filter(
-          (m) =>
-            parseFloat(m.pricing?.prompt ?? '1') === 0 &&
-            parseFloat(m.pricing?.completion ?? '1') === 0,
-        )
-        .sort((a, b) => (b.context_length ?? 0) - (a.context_length ?? 0))
-        .slice(0, 20);
-
-      const embed = new EmbedBuilder()
-        .setColor(ZENITSU_THEME.PRIMARY)
-        .setTitle(`Free OpenRouter models (${free.length})`)
-        .setDescription(
-          free
-            .map((m) => `\`${m.id}\`\n${(m.context_length ?? 0).toLocaleString()} token context`)
-            .join('\n\n')
-            .slice(0, 4000),
-        )
-        .setFooter({ text: `Current: ${activeModel()} | set AI_MODEL in .env to change` })
-        .setTimestamp();
-
-      await interaction.editReply({ embeds: [embed] });
-    } catch (err) {
-      logger.error({ err }, 'Model list failed');
-      await interaction.editReply('Could not fetch the model list.').catch(() => {});
     }
   },
 };

@@ -64,7 +64,7 @@ export const slots = {
 
     if (userEcon.coins < bet) {
       await interaction.reply({
-        content: `W-wait! You only have ${userEcon.coins.toLocaleString()} coins!`,
+        content: `You only have ${userEcon.coins.toLocaleString()} coins!`,
         ephemeral: true,
       });
       return;
@@ -133,7 +133,7 @@ export const slots = {
       embed.addFields([
         {
           name: `No match...`,
-          value: `Better luck next time!\n**Lost:** -${bet.toLocaleString()}\n\u200b`,
+          value: `**Lost:** -${bet.toLocaleString()}\n\u200b`,
           inline: false,
         },
       ]);
@@ -152,7 +152,6 @@ export const slots = {
       },
     ]);
 
-    embed.setFooter({ text: 'Try your luck again!' });
     embed.setTimestamp();
 
     await interaction.reply({ embeds: [embed] });
