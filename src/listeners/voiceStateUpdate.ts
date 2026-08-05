@@ -2,130 +2,90 @@ import type { Client, VoiceState, VoiceBasedChannel } from 'discord.js';
 import { shoukaku } from '../music/lavalink.js';
 import { logger } from '../services/logger.js';
 
-// Track timeouts to clear them if users rejoin
+const IDLE_DISCONNECT_MS = 2 * 60 * 1000;
+
+/** Pending idle-disconnect timers, keyed by guild, so rejoining cancels them. */
 const leaveTimeouts = new Map<string, NodeJS.Timeout>();
+
+function cancelIdleTimer(guildId: string) {
+  const timer = leaveTimeouts.get(guildId);
+  if (timer) {
+    clearTimeout(timer);
+    leaveTimeouts.delete(guildId);
+  }
+}
+
+/**
+ * Always tear down through PlayerManager. Calling player.destroy() and
+ * leaveVoiceChannel() directly leaves the manager believing the guild's player
+ * is still wired, so the next connection never gets queue-advance handlers and
+ * playback silently stops after one track.
+ */
+async function teardown(client: Client, guildId: string, reason: string) {
+  cancelIdleTimer(guildId);
+  logger.info({ guildId, reason }, 'Tearing down voice connection');
+  await client.playerManager.destroy(guildId);
+}
 
 export function registerVoiceStateListener(client: Client) {
   client.on('voiceStateUpdate', async (oldState: VoiceState, newState: VoiceState) => {
     const guildId = newState.guild.id;
-    const player = shoukaku?.players.get(guildId);
 
-    // If no player exists in this guild, nothing to manage
-    if (!player) return;
+    if (!shoukaku?.players.get(guildId)) return;
 
-    const connection = shoukaku?.connections.get(guildId);
-    const botChannelId = connection?.channelId;
-
+    const botChannelId = shoukaku.connections.get(guildId)?.channelId;
     if (!botChannelId) return;
 
-    // Get the bot's voice channel
     const botChannel = newState.guild.channels.cache.get(botChannelId);
 
-    // Edge case 1: Channel was deleted
-    if (!botChannel) {
-      logger.info({ guildId }, 'Voice channel deleted, leaving');
-      clearTimeout(leaveTimeouts.get(guildId));
-      leaveTimeouts.delete(guildId);
-      await player.destroy();
-      shoukaku?.leaveVoiceChannel(guildId);
-      client.playerManager?.getQueue(guildId)?.clear();
+    if (!botChannel?.isVoiceBased()) {
+      await teardown(client, guildId, 'voice channel gone');
       return;
     }
 
-    // Ensure it's a voice-based channel
-    if (!botChannel.isVoiceBased()) return;
-
-    // Edge case 2: Check if bot was moved or kicked
-    if (oldState.id === client.user?.id) {
-      // Bot was moved to a different channel
-      if (oldState.channelId && oldState.channelId !== newState.channelId) {
-        logger.info(
-          { guildId, oldChannel: oldState.channelId, newChannel: newState.channelId },
-          'Bot moved/kicked from voice',
-        );
-        clearTimeout(leaveTimeouts.get(guildId));
-        leaveTimeouts.delete(guildId);
-
-        // If bot was kicked (no new channel), clean up
-        if (!newState.channelId) {
-          await player.destroy();
-          shoukaku?.leaveVoiceChannel(guildId);
-          client.playerManager?.getQueue(guildId)?.clear();
-          return;
-        }
-      }
+    // The bot itself was disconnected or dragged out of the channel.
+    if (oldState.id === client.user?.id && oldState.channelId && !newState.channelId) {
+      await teardown(client, guildId, 'bot disconnected from voice');
+      return;
     }
 
-    // Edge case 3: Check if all non-bot members left the channel
-    const typedChannel = botChannel as VoiceBasedChannel;
-    const members = typedChannel.members.filter((m) => !m.user.bot);
+    const listeners = (botChannel as VoiceBasedChannel).members.filter((m) => !m.user.bot);
 
-    if (members.size === 0) {
-      // Clear any existing timeout for this guild
-      if (leaveTimeouts.has(guildId)) {
-        clearTimeout(leaveTimeouts.get(guildId));
-      }
+    if (listeners.size > 0) {
+      cancelIdleTimer(guildId);
+      return;
+    }
 
-      // Set new timeout
-      const timeout = setTimeout(async () => {
+    if (leaveTimeouts.has(guildId)) return;
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        leaveTimeouts.delete(guildId);
         try {
-          // Re-check if channel still exists and is still empty
-          const currentChannel = newState.guild.channels.cache.get(botChannelId);
+          const channel = newState.guild.channels.cache.get(botChannelId);
+          const stillEmpty =
+            !channel?.isVoiceBased() ||
+            (channel as VoiceBasedChannel).members.filter((m) => !m.user.bot).size === 0;
 
-          if (!currentChannel || !currentChannel.isVoiceBased()) {
-            // Channel deleted
-            logger.info({ guildId }, 'Channel deleted during idle timeout');
-            await player.destroy();
-            shoukaku?.leaveVoiceChannel(guildId);
-            client.playerManager?.getQueue(guildId)?.clear();
-            leaveTimeouts.delete(guildId);
-            return;
-          }
-
-          const currentTypedChannel = currentChannel as VoiceBasedChannel;
-          const currentMembers = currentTypedChannel.members.filter((m) => !m.user.bot);
-
-          if (currentMembers.size === 0) {
-            logger.info({ guildId }, 'No members after idle timeout, leaving voice');
-            await player.destroy();
-            shoukaku?.leaveVoiceChannel(guildId);
-            client.playerManager?.getQueue(guildId)?.clear();
-          }
+          if (stillEmpty) await teardown(client, guildId, 'idle, nobody listening');
         } catch (err) {
-          logger.error({ err, guildId }, 'Error during idle timeout cleanup');
-        } finally {
-          leaveTimeouts.delete(guildId);
+          logger.error({ err, guildId }, 'Idle disconnect failed');
         }
-      }, 60_000 * 2); // 2 minutes idle (reduced from 5)
+      })();
+    }, IDLE_DISCONNECT_MS);
 
-      leaveTimeouts.set(guildId, timeout);
-      logger.info({ guildId }, 'Started idle disconnect timer (2 minutes)');
-    } else {
-      // Members are present, clear any pending timeout
-      if (leaveTimeouts.has(guildId)) {
-        clearTimeout(leaveTimeouts.get(guildId));
-        leaveTimeouts.delete(guildId);
-        logger.info({ guildId }, 'Cancelled idle disconnect timer (members present)');
-      }
-    }
+    leaveTimeouts.set(guildId, timer);
+    logger.info({ guildId }, 'Started idle disconnect timer');
   });
 
-  // Edge case 4: Handle channel deletions
   client.on('channelDelete', async (channel) => {
     if (!channel.isVoiceBased()) return;
 
     const guildId = channel.guild.id;
-    const player = shoukaku?.players.get(guildId);
-    if (!player) return;
+    if (!shoukaku?.players.get(guildId)) return;
 
-    const connection = shoukaku?.connections.get(guildId);
-    if (connection?.channelId === channel.id) {
-      logger.info({ guildId, channelId: channel.id }, 'Bot voice channel deleted');
-      clearTimeout(leaveTimeouts.get(guildId));
-      leaveTimeouts.delete(guildId);
-      await player.destroy();
-      shoukaku?.leaveVoiceChannel(guildId);
-      client.playerManager?.getQueue(guildId)?.clear();
+    if (shoukaku.connections.get(guildId)?.channelId === channel.id) {
+      await teardown(client, guildId, 'voice channel deleted');
     }
   });
 }

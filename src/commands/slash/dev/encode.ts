@@ -107,7 +107,7 @@ function decodeSegment(segment: string): JwtSegment | null {
 function annotate(payload: JwtSegment): string {
   const lines = Object.entries(payload).map(([key, value]) => {
     if (TIME_CLAIMS.has(key) && typeof value === 'number') {
-      return `${key}: ${value}  →  ${new Date(value * 1000).toISOString()}`;
+      return `${key}: ${value} -> ${new Date(value * 1000).toISOString()}`;
     }
     return `${key}: ${JSON.stringify(value)}`;
   });

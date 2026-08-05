@@ -25,22 +25,13 @@ async function main() {
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
-    // Required for reaction roles to see reactions on messages the bot did not send.
-    GatewayIntentBits.GuildMessageReactions,
   ];
 
   if (config.MESSAGE_CONTENT_INTENT) intents.push(GatewayIntentBits.MessageContent);
 
   const client = new Client({
     intents,
-    partials: [
-      Partials.Channel,
-      Partials.GuildMember,
-      Partials.Message,
-      Partials.User,
-      // Reactions on messages predating this session arrive partial.
-      Partials.Reaction,
-    ],
+    partials: [Partials.Channel, Partials.GuildMember, Partials.Message, Partials.User],
   }) as Client;
 
   client.commands = new Collection<string, CommandHandler>();
@@ -55,18 +46,14 @@ async function main() {
   const { registerInteractionCreateListener } = await import('./listeners/interactionCreate.js');
   const { registerGuildCreateListener } = await import('./listeners/guildCreate.js');
   const { registerGuildDeleteListener } = await import('./listeners/guildDelete.js');
-  const { registerGuildMemberRemoveListener } = await import('./listeners/guildMemberRemove.js');
   const { registerVoiceStateListener } = await import('./listeners/voiceStateUpdate.js');
-  const { registerReactionRoleListener } = await import('./listeners/reactionRole.js');
   const { default: registerButtonHandler } = await import('./listeners/buttonInteraction.js');
 
   registerReadyListener(client);
   registerInteractionCreateListener(client);
   registerGuildCreateListener(client);
   registerGuildDeleteListener(client);
-  registerGuildMemberRemoveListener(client);
   registerVoiceStateListener(client);
-  registerReactionRoleListener(client);
   registerButtonHandler(client);
 
   const { startReminderScheduler } = await import('./services/reminderScheduler.js');

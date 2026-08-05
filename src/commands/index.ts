@@ -35,9 +35,6 @@ import { mute } from './slash/mod/mute.js';
 import { purge } from './slash/mod/purge.js';
 import { warn, warnings } from './slash/mod/warn.js';
 
-// Anime
-import { animairing } from './slash/anime/airing.js';
-
 // Economy
 import { balance } from './slash/economy/balance.js';
 import { daily } from './slash/economy/daily.js';
@@ -64,18 +61,11 @@ import { steamsearch } from './slash/games/steamsearch.js';
 import { freegames } from './slash/games/freegames.js';
 
 // Developer
-import { npm, pypi, crates } from './slash/dev/packages.js';
+import { crates } from './slash/dev/packages.js';
 import { gh, ghuser } from './slash/dev/github.js';
-import { so } from './slash/dev/stackoverflow.js';
 import { dns, ssl } from './slash/dev/network.js';
 import { base64, hash, uuid, jwt } from './slash/dev/encode.js';
 import { timestamp, httpStatus, regex, color } from './slash/dev/tools.js';
-
-// Admin
-import { welcome } from './slash/admin/welcome.js';
-import { goodbye } from './slash/admin/goodbye.js';
-import { modlog } from './slash/admin/modlog.js';
-import { reactionrole } from './slash/admin/reactionrole.js';
 
 // Owner
 import { status } from './slash/owner/status.js';
@@ -427,14 +417,6 @@ export const COMMANDS: CommandDefinition[] = [
   },
 
   // ------------------------------------------------------------------ Anime
-  {
-    builder: new SlashCommandBuilder()
-      .setName('animairing')
-      .setDescription('View anime airing this season'),
-    handler: animairing,
-    category: 'anime',
-    summary: 'View anime airing this season',
-  },
 
   // ---------------------------------------------------------------- Economy
   {
@@ -667,28 +649,6 @@ export const COMMANDS: CommandDefinition[] = [
   // -------------------------------------------------------------- Developer
   {
     builder: new SlashCommandBuilder()
-      .setName('npm')
-      .setDescription('Look up an npm package')
-      .addStringOption((o) =>
-        o.setName('package').setDescription('Package name').setRequired(true),
-      ),
-    handler: npm,
-    category: 'dev',
-    summary: 'Look up an npm package',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('pypi')
-      .setDescription('Look up a PyPI package')
-      .addStringOption((o) =>
-        o.setName('package').setDescription('Package name').setRequired(true),
-      ),
-    handler: pypi,
-    category: 'dev',
-    summary: 'Look up a PyPI package',
-  },
-  {
-    builder: new SlashCommandBuilder()
       .setName('crates')
       .setDescription('Look up a Rust crate')
       .addStringOption((o) => o.setName('crate').setDescription('Crate name').setRequired(true)),
@@ -717,17 +677,6 @@ export const COMMANDS: CommandDefinition[] = [
     handler: ghuser,
     category: 'dev',
     summary: 'Look up a GitHub user',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('so')
-      .setDescription('Search Stack Overflow')
-      .addStringOption((o) =>
-        o.setName('query').setDescription('What to search for').setRequired(true),
-      ),
-    handler: so,
-    category: 'dev',
-    summary: 'Search Stack Overflow',
   },
   {
     builder: new SlashCommandBuilder()
@@ -874,114 +823,6 @@ export const COMMANDS: CommandDefinition[] = [
   },
 
   // ------------------------------------------------------------------ Admin
-  {
-    builder: new SlashCommandBuilder()
-      .setName('welcome')
-      .setDescription('Configure welcome messages')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) =>
-        sub
-          .setName('setup')
-          .setDescription('Configure the welcome message')
-          .addChannelOption((o) =>
-            o.setName('channel').setDescription('Welcome channel').setRequired(true),
-          )
-          .addStringOption((o) =>
-            o
-              .setName('message')
-              .setDescription('Message text — {user}, {server} and {memberCount} are substituted')
-              .setRequired(true),
-          ),
-      )
-      .addSubcommand((sub) => sub.setName('disable').setDescription('Disable welcome messages'))
-      .addSubcommand((sub) => sub.setName('test').setDescription('Send a test welcome message')),
-    handler: welcome,
-    category: 'admin',
-    summary: 'Configure welcome messages',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('goodbye')
-      .setDescription('Configure goodbye messages')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) =>
-        sub
-          .setName('setup')
-          .setDescription('Configure the goodbye message')
-          .addChannelOption((o) =>
-            o.setName('channel').setDescription('Goodbye channel').setRequired(true),
-          )
-          .addStringOption((o) =>
-            o
-              .setName('message')
-              .setDescription('Message text — {user}, {server} and {memberCount} are substituted'),
-          ),
-      )
-      .addSubcommand((sub) => sub.setName('disable').setDescription('Disable goodbye messages'))
-      .addSubcommand((sub) => sub.setName('test').setDescription('Send a test goodbye message')),
-    handler: goodbye,
-    category: 'admin',
-    summary: 'Configure goodbye messages',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('modlog')
-      .setDescription('Configure the moderation log channel')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
-      .addSubcommand((sub) =>
-        sub
-          .setName('set')
-          .setDescription('Choose where moderation actions are logged')
-          .addChannelOption((o) =>
-            o.setName('channel').setDescription('Log channel').setRequired(true),
-          ),
-      )
-      .addSubcommand((sub) =>
-        sub.setName('disable').setDescription('Stop logging moderation actions'),
-      )
-      .addSubcommand((sub) => sub.setName('status').setDescription('Show the current log channel')),
-    handler: modlog,
-    category: 'admin',
-    summary: 'Configure the moderation log channel',
-  },
-  {
-    builder: new SlashCommandBuilder()
-      .setName('reactionrole')
-      .setDescription('Grant roles when members react to a message')
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
-      .addSubcommand((sub) =>
-        sub
-          .setName('add')
-          .setDescription('Bind an emoji on a message to a role')
-          .addStringOption((o) =>
-            o.setName('message_id').setDescription('Id of the target message').setRequired(true),
-          )
-          .addStringOption((o) =>
-            o.setName('emoji').setDescription('Emoji to watch').setRequired(true),
-          )
-          .addRoleOption((o) => o.setName('role').setDescription('Role to grant').setRequired(true))
-          .addChannelOption((o) =>
-            o.setName('channel').setDescription('Channel holding the message, defaults to here'),
-          ),
-      )
-      .addSubcommand((sub) =>
-        sub
-          .setName('remove')
-          .setDescription('Remove a binding')
-          .addStringOption((o) =>
-            o.setName('message_id').setDescription('Id of the target message').setRequired(true),
-          )
-          .addStringOption((o) =>
-            o.setName('emoji').setDescription('Emoji to unbind').setRequired(true),
-          ),
-      )
-      .addSubcommand((sub) =>
-        sub.setName('list').setDescription('List reaction roles in this server'),
-      ),
-    handler: reactionrole,
-    category: 'admin',
-    summary: 'Grant roles when members react to a message',
-  },
 
   // ------------------------------------------------------------------ Owner
   {

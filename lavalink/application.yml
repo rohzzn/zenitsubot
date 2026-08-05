@@ -4,15 +4,18 @@ server:
 
 lavalink:
   plugins:
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.14.0"
+    # Keep these current. YouTube regularly breaks older youtube-source builds,
+    # and an outdated plugin shows up as /play failing to resolve anything.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.18.2"
       snapshot: false
-    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.3.0"
+    - dependency: "com.github.topi314.lavasrc:lavasrc-plugin:4.8.3"
       repository: "https://maven.lavalink.dev/releases"
       snapshot: false
   server:
     password: ${LAVALINK_PASSWORD:changeme}
     sources:
-      youtube: false  # Disable deprecated source
+      # The built-in YouTube source is deprecated; the plugin above replaces it.
+      youtube: false
       bandcamp: true
       soundcloud: true
       twitch: true
@@ -21,6 +24,16 @@ lavalink:
       local: false
 
 plugins:
+  youtube:
+    enabled: true
+    # Client order matters. MUSIC and WEB_EMBEDDED handle age/region gating that
+    # the plain WEB client refuses, and ANDROID_VR is the most reliable for
+    # straight playback, so it leads.
+    clients:
+      - ANDROID_VR
+      - MUSIC
+      - WEB_EMBEDDED
+      - WEB
   lavasrc:
     providers:
       - "ytsearch:\"%ISRC%\""

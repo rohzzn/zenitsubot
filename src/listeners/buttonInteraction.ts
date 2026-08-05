@@ -53,41 +53,46 @@ async function handleMusicButton(client: Client, interaction: ButtonInteraction)
       case 'music_pause': {
         if (player.paused) {
           await player.setPaused(false);
-          await interaction.reply({ content: '▶ Resumed playback.', ephemeral: true });
+          await interaction.reply({ content: 'Resumed playback.', ephemeral: true });
         } else {
           await player.setPaused(true);
-          await interaction.reply({ content: '⏸ Paused playback.', ephemeral: true });
+          await interaction.reply({ content: 'Paused playback.', ephemeral: true });
         }
         break;
       }
 
       case 'music_skip': {
-        const nextTrack = queue.next();
-        if (nextTrack) {
-          await player.playTrack({ track: { encoded: nextTrack.encoded } });
+        // Same path as /skip so the two can never drift apart.
+        const advanced = await client.playerManager.advance(guildId);
 
+        if (advanced) {
+          const nextTrack = queue.now();
           const embed = new EmbedBuilder()
-            .setColor(0x1db954)
-            .setTitle('⏭ Skipped')
-            .setDescription(`Now playing: **${nextTrack.title}**\n${nextTrack.author}`)
-            .setThumbnail(nextTrack.artworkUrl || null);
+            .setColor(ZENITSU_THEME.PRIMARY)
+            .setTitle('Skipped')
+            .setDescription(
+              nextTrack
+                ? `Now playing: **${nextTrack.title}**\n${nextTrack.author}`
+                : 'Playing next track',
+            );
 
+          if (nextTrack?.artworkUrl) embed.setThumbnail(nextTrack.artworkUrl);
           await interaction.reply({ embeds: [embed] });
         } else {
           await player.stopTrack();
-          await interaction.reply({ content: '⏭ Skipped. Queue is now empty.', ephemeral: true });
+          await interaction.reply({ content: 'Skipped. The queue is now empty.', ephemeral: true });
         }
         break;
       }
 
       case 'music_stop': {
-        queue.clear();
         await player.stopTrack();
-        shoukaku?.leaveVoiceChannel(guildId);
+        // Via PlayerManager so the guild's wiring state is cleared too.
+        await client.playerManager.destroy(guildId);
 
         const embed = new EmbedBuilder()
-          .setColor(0xff0000)
-          .setTitle('⏹ Playback Stopped')
+          .setColor(ZENITSU_THEME.ERROR)
+          .setTitle('Playback stopped')
           .setDescription('Cleared the queue and left the voice channel.');
 
         await interaction.reply({ embeds: [embed] });

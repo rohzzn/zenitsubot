@@ -84,7 +84,7 @@ export const daily = {
           inline: true,
         },
         {
-          name: '⏰ Next Daily',
+          name: 'Next Daily',
           value: `**24 hours**`,
           inline: true,
         },

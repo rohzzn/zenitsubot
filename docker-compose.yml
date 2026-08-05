@@ -4,7 +4,12 @@ services:
     env_file:
       - .env
     depends_on:
-      - lavalink
+      # Wait for Lavalink to actually accept connections, not just for its
+      # container to start. The JVM takes several seconds to come up, and
+      # starting the bot early makes its first websocket attempt race the
+      # server; Shoukaku then sits idle instead of retrying.
+      lavalink:
+        condition: service_healthy
     restart: unless-stopped
     volumes:
       - ./prisma:/app/prisma
@@ -28,6 +33,15 @@ services:
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     restart: unless-stopped
+    healthcheck:
+      # Every route needs auth, so this deliberately omits -f: any HTTP
+      # response (including 401) proves Lavalink is up and serving, which is
+      # all the gate needs, and it keeps the password out of the healthcheck.
+      test: ['CMD', 'curl', '-sS', '-o', '/dev/null', 'http://localhost:2333/version']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
     networks:
       - zenitsu-network
 
