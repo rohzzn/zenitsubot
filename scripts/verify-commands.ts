@@ -1,43 +1,127 @@
 import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
+import { COMMANDS } from '../src/commands/index.js';
 
-function getEnv(name: string): string {
-  const v = process.env[name];
-  if (!v) throw new Error(`Missing env ${name}`);
-  return v;
+/**
+ * Cross-checks three things that must stay in agreement:
+ *   1. every builder resolves to a handler of the same name
+ *   2. no duplicate or handler-less commands
+ *   3. what Discord currently has registered matches the local definitions
+ *
+ * Run with DISCORD_APP_ID/DISCORD_BOT_TOKEN set to include step 3.
+ */
+
+interface OptionJson {
+  name: string;
+  type: number;
+  required?: boolean;
+  options?: OptionJson[];
 }
 
-async function main() {
-  const appId = getEnv('DISCORD_APP_ID');
-  const token = getEnv('DISCORD_BOT_TOKEN');
+const SUBCOMMAND = 1;
+const SUBCOMMAND_GROUP = 2;
 
-  const rest = new REST().setToken(token);
-
-  console.log('📡 Fetching commands from Discord API...\n');
-  
-  const commands = await rest.get(Routes.applicationCommands(appId)) as any[];
-  
-  console.log(`✅ Total commands on Discord: ${commands.length}\n`);
-  
-  // Check for new commands
-  const newCommands = ['hug', 'kiss', 'cuddle', 'slap', 'punch', 'kickfun', 'work', 'rob', 'gift', 'rank', 'shop', 'inventory', 'meme', 'slots', 'coinflip', 'dice'];
-  
-  console.log('🔍 Checking for new commands:');
-  for (const cmdName of newCommands) {
-    const found = commands.find((c: any) => c.name === cmdName);
-    if (found) {
-      console.log(`  ✅ /${cmdName} - FOUND`);
+function declaredOptionNames(options: OptionJson[] = []): Set<string> {
+  const names = new Set<string>();
+  for (const option of options) {
+    if (option.type === SUBCOMMAND || option.type === SUBCOMMAND_GROUP) {
+      for (const nested of declaredOptionNames(option.options)) names.add(nested);
     } else {
-      console.log(`  ❌ /${cmdName} - MISSING`);
+      names.add(option.name);
     }
   }
-  
-  console.log('\n📋 All command names on Discord:');
-  commands.forEach((c: any) => console.log(`  - ${c.name}`));
+  return names;
 }
 
-main().catch(console.error);
+function checkLocalDefinitions(): number {
+  let failures = 0;
+  const fail = (message: string) => {
+    console.error(`  FAIL  ${message}`);
+    failures++;
+  };
 
+  console.log('Checking builder/handler agreement...');
+  const seen = new Set<string>();
 
+  for (const { builder, handler } of COMMANDS) {
+    const json = builder.toJSON();
 
+    if (json.name !== handler.data.name) {
+      fail(`builder "${json.name}" is wired to handler "${handler.data.name}"`);
+    }
+    if (seen.has(json.name)) {
+      fail(`duplicate command name "${json.name}"`);
+    }
+    seen.add(json.name);
 
+    if (typeof handler.execute !== 'function') {
+      fail(`"${json.name}" has no execute function`);
+    }
+  }
+
+  console.log(`  ${COMMANDS.length} commands checked.`);
+  return failures;
+}
+
+async function compareWithDiscord(): Promise<number> {
+  const appId = process.env.DISCORD_APP_ID;
+  const token = process.env.DISCORD_BOT_TOKEN;
+
+  if (!appId || !token) {
+    console.log('\nSkipping live comparison (DISCORD_APP_ID / DISCORD_BOT_TOKEN not set).');
+    return 0;
+  }
+
+  console.log('\nComparing against Discord...');
+  const rest = new REST({ version: '10' }).setToken(token);
+  const remote = (await rest.get(Routes.applicationCommands(appId))) as Array<{
+    name: string;
+    options?: OptionJson[];
+  }>;
+
+  const localNames = new Set(COMMANDS.map((c) => c.handler.data.name));
+  const remoteNames = new Set(remote.map((c) => c.name));
+  let failures = 0;
+
+  for (const name of remoteNames) {
+    if (!localNames.has(name)) {
+      console.error(`  STALE  /${name} is registered on Discord but has no handler`);
+      failures++;
+    }
+  }
+
+  for (const name of localNames) {
+    if (!remoteNames.has(name)) {
+      console.error(`  MISSING  /${name} exists locally but is not registered — run register:commands`);
+      failures++;
+    }
+  }
+
+  // Compare option names for commands present on both sides.
+  for (const { builder } of COMMANDS) {
+    const json = builder.toJSON();
+    const remoteCommand = remote.find((c) => c.name === json.name);
+    if (!remoteCommand) continue;
+
+    const local = declaredOptionNames(json.options as OptionJson[] | undefined);
+    const live = declaredOptionNames(remoteCommand.options);
+
+    for (const option of local) {
+      if (!live.has(option)) {
+        console.error(`  DRIFT  /${json.name} option "${option}" is not registered on Discord`);
+        failures++;
+      }
+    }
+  }
+
+  if (failures === 0) console.log('  Discord is in sync.');
+  return failures;
+}
+
+const failures = checkLocalDefinitions() + (await compareWithDiscord());
+
+if (failures > 0) {
+  console.error(`\n${failures} problem(s) found.`);
+  process.exit(1);
+}
+console.log('\nAll checks passed.');

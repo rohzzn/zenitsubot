@@ -37,7 +37,7 @@ export const rob = {
     
     // Check cooldown (2 hours)
     const now = new Date();
-    const lastRob = userEcon.lastRep; // Reuse lastRep for rob cooldown
+    const lastRob = userEcon.lastRob;
     const cooldown = 2 * 60 * 60 * 1000;
     
     if (lastRob && (now.getTime() - lastRob.getTime()) < cooldown) {
@@ -78,7 +78,7 @@ export const rob = {
       
       await prisma.userEconomy.update({
         where: { userId },
-        data: { coins: userEcon.coins + stolen, lastRep: now }
+        data: { coins: userEcon.coins + stolen, lastRob: now }
       });
       
       await prisma.userEconomy.update({
@@ -109,7 +109,7 @@ export const rob = {
       
       await prisma.userEconomy.update({
         where: { userId },
-        data: { coins: userEcon.coins - fine, lastRep: now }
+        data: { coins: userEcon.coins - fine, lastRob: now }
       });
       
       const embed = new EmbedBuilder()

@@ -25,41 +25,10 @@ export const play = {
       const guildId = interaction.guildId!;
       const pm = client.playerManager;
       const queue = pm.ensureQueue(guildId, member.voice.channel.id);
-      
-      // Check if already connected, if not join
-      let player = shoukaku?.players.get(guildId);
-      if (!player) {
-        player = await shoukaku!.joinVoiceChannel({
-          guildId,
-          channelId: member.voice.channel.id,
-          shardId: member.voice.channel.guild.shardId ?? 0,
-          deaf: true,
-        });
 
-        // Set up player event handlers
-        player.on('end', async (data) => {
-          if (data.reason === 'replaced' || data.reason === 'stopped') return;
-          
-          const nextTrack = queue.next();
-          if (nextTrack) {
-            await player!.playTrack({ track: { encoded: nextTrack.encoded } });
-          } else {
-            // Queue ended
-            setTimeout(() => {
-              const currentPlayer = shoukaku?.players.get(guildId);
-              if (currentPlayer && !currentPlayer.track) {
-                shoukaku?.leaveVoiceChannel(guildId);
-                pm.getQueue(guildId)?.clear();
-              }
-            }, queue.idleMinutes * 60 * 1000);
-          }
-        });
+      // Connects if needed and attaches queue-advance handlers exactly once.
+      const player = await pm.ensurePlayer(member.voice.channel);
 
-        player.on('exception', (data) => {
-          console.error('Player exception:', data);
-        });
-      }
-      
       // Search for track
       const node = shoukaku!.nodes.values().next().value;
       if (!node) {

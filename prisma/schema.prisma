@@ -76,25 +76,13 @@ model UserEconomy {
   level         Int      @default(1)
   xp            Int      @default(0)
   lastDaily     DateTime?
-  lastRep       DateTime?
+  lastWork      DateTime?
+  lastRob       DateTime?
   totalWagered  Int      @default(0)  // Total amount wagered
   totalWon      Int      @default(0)   // Total amount won
   gamesPlayed   Int      @default(0)   // Total games played
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}
-
-model StreamAlert {
-  id            String   @id @default(cuid())
-  guildId       String
-  channelId     String
-  platform      String   // "youtube" or "twitch"
-  streamerId    String   // Channel ID or username
-  streamerName  String
-  lastNotified  DateTime?
-  createdAt     DateTime @default(now())
-  
-  @@unique([guildId, platform, streamerId])
 }
 
 model UserInventory {

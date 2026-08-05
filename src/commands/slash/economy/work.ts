@@ -34,21 +34,22 @@ export const work = {
       });
     }
     
-    // Check cooldown (1 hour)
+    // Check cooldown (1 hour). Must use a dedicated column — `updatedAt` is
+    // bumped by every other economy command, which would reset this constantly.
     const now = new Date();
-    const lastWork = userEcon.updatedAt;
-    const cooldown = 60 * 60 * 1000; // 1 hour
-    const timeSince = now.getTime() - lastWork.getTime();
-    
-    if (timeSince < cooldown) {
-      const timeLeft = cooldown - timeSince;
-      const minutesLeft = Math.ceil(timeLeft / (1000 * 60));
-      
-      await interaction.reply({ 
-        content: `You're exhausted! Rest for **${minutesLeft} minutes** before working again.`,
-        ephemeral: true 
-      });
-      return;
+    const cooldown = 60 * 60 * 1000;
+
+    if (userEcon.lastWork) {
+      const timeSince = now.getTime() - userEcon.lastWork.getTime();
+
+      if (timeSince < cooldown) {
+        const readyAt = Math.floor((userEcon.lastWork.getTime() + cooldown) / 1000);
+        await interaction.reply({
+          content: `You're exhausted! You can work again <t:${readyAt}:R>.`,
+          ephemeral: true,
+        });
+        return;
+      }
     }
     
     // Random job and earnings
@@ -58,9 +59,9 @@ export const work = {
     // Update balance
     await prisma.userEconomy.update({
       where: { userId },
-      data: { 
+      data: {
         coins: userEcon.coins + earnings,
-        updatedAt: now
+        lastWork: now
       }
     });
     

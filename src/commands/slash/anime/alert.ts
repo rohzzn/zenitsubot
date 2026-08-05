@@ -1,6 +1,7 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
 import { EmbedBuilder, PermissionFlagsBits } from 'discord.js';
 import { getPrisma } from '../../../services/db.js';
+import { fetchLatestAiredEpisode } from '../../../services/animeChecker.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 
 export const animealert = {
@@ -8,6 +9,7 @@ export const animealert = {
     name: 'animealert',
     description: 'Setup anime episode alerts for your server',
   },
+  category: 'anime',
   defaultMemberPermissions: PermissionFlagsBits.ManageGuild,
   
   async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
@@ -45,7 +47,11 @@ export const animealert = {
         
         const anime = data.data[0];
         const animeId = anime.mal_id.toString();
-        
+
+        // Seed from what has already aired so we only announce episodes that
+        // land after the alert is created.
+        const airedSoFar = await fetchLatestAiredEpisode(animeId);
+
         await prisma.animeAlert.upsert({
         where: {
           guildId_animeId: {
@@ -60,7 +66,7 @@ export const animealert = {
           animeId,
           animeName: anime.title,
           title: anime.title,
-          lastEpisode: anime.episodes || 0,
+          lastEpisode: airedSoFar,
         },
         update: {
           channelId: channel.id,

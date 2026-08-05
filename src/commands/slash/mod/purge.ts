@@ -2,17 +2,15 @@ import type { Client, ChatInputCommandInteraction, TextChannel } from 'discord.j
 
 export const purge = {
   data: { name: 'purge' },
+  category: 'mod',
   async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
-    const count = interaction.options.getInteger('count') || 10;
-    
-    if (count < 1 || count > 100) {
-      await interaction.reply({ content: 'Count must be between 1-100.', ephemeral: true });
-      return;
-    }
-    
+    const amount = interaction.options.getInteger('amount', true);
+
     const channel = interaction.channel as TextChannel;
-    await channel.bulkDelete(count, true);
-    await interaction.reply({ content: `Deleted ${count} messages.`, ephemeral: true });
+    const deleted = await channel.bulkDelete(amount, true);
+    await interaction.reply({
+      content: `Deleted ${deleted.size} message${deleted.size === 1 ? '' : 's'}.`,
+      ephemeral: true,
+    });
   },
 };
-

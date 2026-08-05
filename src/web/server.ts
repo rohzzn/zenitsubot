@@ -7,7 +7,7 @@ import { readFileSync } from 'fs';
 import ejs from 'ejs';
 import { loadConfig } from '../services/config.js';
 import { configurePassport, registerAuth, ensureAuth } from './auth.js';
-import { db } from '../services/db.js';
+import { getPrisma } from '../services/db.js';
 import { verifyKey } from 'discord-interactions';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,13 +79,13 @@ export function createWebServer() {
 
     try {
       // Fetch user's economy data
-      const economy = await db.user.findUnique({
+      const economy = await getPrisma().user.findUnique({
         where: { userId: user.id },
         select: { balance: true, bank: true },
       });
 
       // Fetch user's anime alerts
-      const animeAlerts = await db.animeAlert
+      const animeAlerts = await getPrisma().animeAlert
         .findMany({
           where: { userId: user.id },
           select: { title: true, animeId: true },
@@ -149,7 +149,7 @@ export function createWebServer() {
 
     try {
       // Store verification in database
-      await db.user.upsert({
+      await getPrisma().user.upsert({
         where: { userId: user.id },
         update: { linkedRolesVerified: true },
         create: {
@@ -232,7 +232,7 @@ export function createWebServer() {
   app.get('/api/economy/:userId', async (req, res) => {
     try {
       const { userId } = req.params;
-      const user = await db.user.findUnique({
+      const user = await getPrisma().user.findUnique({
         where: { userId }
       });
       res.json({ balance: user?.balance || 0, bank: user?.bank || 0 });

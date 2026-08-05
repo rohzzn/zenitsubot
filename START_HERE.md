@@ -123,7 +123,27 @@ docker-compose restart bot
 
 # Rebuild after code changes
 npm run build && docker-compose restart bot
+
+# Push the slash command list to Discord (needed after adding/removing commands)
+npm run register:commands
+
+# Check that handlers, builders and what Discord has all agree
+npm run verify:commands
 ```
+
+## 🧭 Adding a command
+
+Every command is defined once, in `src/commands/index.ts`, which pairs the
+Discord-facing `SlashCommandBuilder` with the handler that reads its options.
+Keeping them together is deliberate — when they lived in separate files, option
+names drifted apart and commands broke silently at runtime.
+
+1. Write the handler in `src/commands/slash/<category>/<name>.ts`
+2. Add one `CommandDefinition` entry to `COMMANDS` in `src/commands/index.ts`
+3. `npm run verify:commands`, then `npm run register:commands`
+
+`/help` and the register script both read from that list, so neither needs
+updating by hand.
 
 ---
 
