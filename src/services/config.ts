@@ -50,5 +50,3 @@ export function loadConfig(): AppConfig {
   }
   return parsed.data as AppConfig;
 }
-
-

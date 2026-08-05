@@ -18,4 +18,3 @@ export const volume = {
     await interaction.reply({ content: `Volume set to ${level}%.`, ephemeral: true });
   },
 };
-

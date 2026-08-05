@@ -16,6 +16,8 @@ export const stop = {
     await player.stopTrack();
     // destroy() only tears down the Lavalink player; leaving voice is separate.
     await client.playerManager.destroy(guildId);
-    await interaction.reply({ content: 'Stopped playback, cleared the queue and left the channel.' });
+    await interaction.reply({
+      content: 'Stopped playback, cleared the queue and left the channel.',
+    });
   },
 };

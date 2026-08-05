@@ -14,4 +14,3 @@ export const loop = {
     await interaction.reply({ content: `Loop mode: ${q.loop}`, ephemeral: true });
   },
 };
-

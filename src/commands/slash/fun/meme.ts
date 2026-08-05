@@ -7,7 +7,14 @@ import { logger } from '../../../services/logger.js';
 // meme-api, which proxies the same subreddits and needs no credentials.
 const API_BASE = 'https://meme-api.com/gimme';
 
-const SUBREDDITS = ['memes', 'dankmemes', 'me_irl', 'wholesomememes', 'animemes', 'ProgrammerHumor'];
+const SUBREDDITS = [
+  'memes',
+  'dankmemes',
+  'me_irl',
+  'wholesomememes',
+  'animemes',
+  'ProgrammerHumor',
+];
 
 interface MemeResponse {
   title?: string;
@@ -47,7 +54,9 @@ export const meme = {
         .setColor(ZENITSU_THEME.PRIMARY)
         .setTitle(title.length > 256 ? `${title.slice(0, 253)}...` : title)
         .setImage(post.url)
-        .setFooter({ text: `r/${post.subreddit ?? subreddit} • 👍 ${(post.ups ?? 0).toLocaleString()}` })
+        .setFooter({
+          text: `r/${post.subreddit ?? subreddit} • ${(post.ups ?? 0).toLocaleString()}`,
+        })
         .setTimestamp();
 
       if (post.postLink) embed.setURL(post.postLink);

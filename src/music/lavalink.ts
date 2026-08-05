@@ -37,5 +37,3 @@ export async function search(node: Node, query: string) {
   const res = await node.rest.resolve(query);
   return res; // { loadType, tracks, playlist }
 }
-
-

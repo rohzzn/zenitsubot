@@ -19,10 +19,19 @@ export class PlayerManager {
     return this.queues.get(guildId);
   }
 
-  ensureQueue(guildId: string, channelId: string, opts?: { defaultVolume?: number; idleMinutes?: number }) {
+  ensureQueue(
+    guildId: string,
+    channelId: string,
+    opts?: { defaultVolume?: number; idleMinutes?: number },
+  ) {
     let q = this.queues.get(guildId);
     if (!q) {
-      q = new GuildQueue({ guildId, channelId, defaultVolume: opts?.defaultVolume, idleMinutes: opts?.idleMinutes });
+      q = new GuildQueue({
+        guildId,
+        channelId,
+        defaultVolume: opts?.defaultVolume,
+        idleMinutes: opts?.idleMinutes,
+      });
       this.queues.set(guildId, q);
     }
     return q;

@@ -50,9 +50,10 @@ async function fetchJson<T>(url: string): Promise<T | null> {
  * paginated oldest-first and only lists episodes once they exist.
  */
 export async function fetchLatestAiredEpisode(malId: string): Promise<number> {
-  const data = await fetchJson<{ data?: JikanEpisode[]; pagination?: { last_visible_page?: number } }>(
-    `https://api.jikan.moe/v4/anime/${malId}/episodes`,
-  );
+  const data = await fetchJson<{
+    data?: JikanEpisode[];
+    pagination?: { last_visible_page?: number };
+  }>(`https://api.jikan.moe/v4/anime/${malId}/episodes`);
   if (!data?.data) return 0;
 
   const lastPage = data.pagination?.last_visible_page ?? 1;
@@ -105,8 +106,10 @@ async function checkForNewEpisodes(client: Client) {
 
         const embed = new EmbedBuilder()
           .setColor(0xff6b6b)
-          .setTitle('🎬 New Episode Alert')
-          .setDescription(`**${anime?.title ?? alert.animeName}**\nEpisode ${latestEpisode} is now available!`)
+          .setTitle('New Episode Alert')
+          .setDescription(
+            `**${anime?.title ?? alert.animeName}**\nEpisode ${latestEpisode} is now available!`,
+          )
           .setFooter({ text: 'MyAnimeList' })
           .setTimestamp();
 

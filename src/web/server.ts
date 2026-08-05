@@ -22,16 +22,18 @@ export function createWebServer() {
   app.set('views', path.join(__dirname, '../../public/views'));
 
   // CORS for GitHub Pages frontend
-  app.use(cors({
-    origin: [
-      'https://zenitsu.rohan.host', // Custom domain on GitHub Pages
-      'http://zenitsu.rohan.host',
-      'http://localhost:3000',
-      'http://localhost:5500',
-      'http://192.168.1.232'
-    ],
-    credentials: true
-  }));
+  app.use(
+    cors({
+      origin: [
+        'https://zenitsu.rohan.host', // Custom domain on GitHub Pages
+        'http://zenitsu.rohan.host',
+        'http://localhost:3000',
+        'http://localhost:5500',
+        'http://192.168.1.232',
+      ],
+      credentials: true,
+    }),
+  );
 
   // Middleware
   app.use(express.urlencoded({ extended: true }));
@@ -43,7 +45,7 @@ export function createWebServer() {
       secret: config.SESSION_SECRET || 'dev-secret',
       resave: false,
       saveUninitialized: false,
-      cookie: { 
+      cookie: {
         secure: process.env.NODE_ENV === 'production',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
         httpOnly: true,
@@ -75,7 +77,12 @@ export function createWebServer() {
 
   // Dashboard
   app.get('/dashboard', ensureAuth, async (req, res) => {
-    const user = (req as any).user as { id: string; username: string; discriminator?: string; avatar?: string };
+    const user = (req as any).user as {
+      id: string;
+      username: string;
+      discriminator?: string;
+      avatar?: string;
+    };
 
     try {
       // Fetch user's economy data
@@ -85,15 +92,18 @@ export function createWebServer() {
       });
 
       // Fetch user's anime alerts
-      const animeAlerts = await getPrisma().animeAlert
-        .findMany({
+      const animeAlerts = await getPrisma()
+        .animeAlert.findMany({
           where: { userId: user.id },
           select: { title: true, animeId: true },
           take: 5,
         })
         .catch(() => []);
 
-      const dashboardContent = readFileSync(path.join(__dirname, '../../public/views/dashboard.ejs'), 'utf8');
+      const dashboardContent = readFileSync(
+        path.join(__dirname, '../../public/views/dashboard.ejs'),
+        'utf8',
+      );
 
       res.render('layout', {
         title: 'Dashboard',
@@ -122,7 +132,10 @@ export function createWebServer() {
 
   // Privacy Policy
   app.get('/privacy-policy', (_req, res) => {
-    const privacyContent = readFileSync(path.join(__dirname, '../../public/views/privacy.ejs'), 'utf8');
+    const privacyContent = readFileSync(
+      path.join(__dirname, '../../public/views/privacy.ejs'),
+      'utf8',
+    );
     res.render('layout', {
       title: 'Privacy Policy',
       body: privacyContent,
@@ -132,7 +145,10 @@ export function createWebServer() {
   // Linked Roles Verification
   app.get('/verify-user', (req, res) => {
     const user = (req as any).user;
-    const verifyContent = readFileSync(path.join(__dirname, '../../public/views/verify.ejs'), 'utf8');
+    const verifyContent = readFileSync(
+      path.join(__dirname, '../../public/views/verify.ejs'),
+      'utf8',
+    );
 
     res.render('layout', {
       title: 'Verify Account',
@@ -160,7 +176,10 @@ export function createWebServer() {
         },
       });
 
-      const verifyContent = readFileSync(path.join(__dirname, '../../public/views/verify.ejs'), 'utf8');
+      const verifyContent = readFileSync(
+        path.join(__dirname, '../../public/views/verify.ejs'),
+        'utf8',
+      );
 
       res.render('layout', {
         title: 'Account Verified',
@@ -172,7 +191,10 @@ export function createWebServer() {
       });
     } catch (error) {
       console.error('Verification error:', error);
-      const verifyContent = readFileSync(path.join(__dirname, '../../public/views/verify.ejs'), 'utf8');
+      const verifyContent = readFileSync(
+        path.join(__dirname, '../../public/views/verify.ejs'),
+        'utf8',
+      );
 
       res.render('layout', {
         title: 'Verification Error',
@@ -233,7 +255,7 @@ export function createWebServer() {
     try {
       const { userId } = req.params;
       const user = await getPrisma().user.findUnique({
-        where: { userId }
+        where: { userId },
       });
       res.json({ balance: user?.balance || 0, bank: user?.bank || 0 });
     } catch (error) {
@@ -250,5 +272,3 @@ if (process.env.WEB_DASHBOARD_ENABLED?.toLowerCase() === 'true') {
   const port = Number(process.env.PORT || 3000);
   app.listen(port, () => console.log(`[web] listening on :${port}`));
 }
-
-

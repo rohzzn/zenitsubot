@@ -8,7 +8,7 @@ export const animairing = {
     name: 'animairing',
     description: 'View currently airing anime this season',
   },
-  
+
   async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     try {
       await interaction.deferReply();
@@ -17,7 +17,7 @@ export const animairing = {
       const now = new Date();
       const month = now.getMonth() + 1;
       const year = now.getFullYear();
-      
+
       let season = 'winter';
       if (month >= 4 && month <= 6) season = 'spring';
       else if (month >= 7 && month <= 9) season = 'summer';
@@ -26,17 +26,17 @@ export const animairing = {
       // Fetch current season anime from Jikan API
       const url = `https://api.jikan.moe/v4/seasons/${year}/${season}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
-        await interaction.editReply(`${EMOTES.CONFUSED_CAT} Failed to fetch airing anime.`);
+        await interaction.editReply(`Failed to fetch airing anime.`);
         return;
       }
 
-      const data = await response.json() as any;
+      const data = (await response.json()) as any;
       const animeList = data.data || [];
 
       if (animeList.length === 0) {
-        await interaction.editReply(`${EMOTES.THINK} No airing anime found for this season.`);
+        await interaction.editReply(`No airing anime found for this season.`);
         return;
       }
 
@@ -48,15 +48,19 @@ export const animairing = {
 
       const embed = new EmbedBuilder()
         .setColor(ZENITSU_THEME.PRIMARY)
-        .setTitle(`${EMOTES.FLUENT_SPARKLES} Currently Airing Anime`)
+        .setTitle(`Currently Airing Anime`)
         .setDescription(
           `**${season.charAt(0).toUpperCase() + season.slice(1)} ${year} Season**\n\n` +
-          topAiring.map((anime: any, index: number) => {
-            const score = anime.score ? `⭐ ${anime.score}` : 'N/A';
-            const episodes = anime.episodes ? `${anime.episodes} eps` : 'Ongoing';
-            return `${EMOTES.BULLET} **${index + 1}. [${anime.title}](${anime.url})**\n` +
-                   `   ${score} • ${episodes} • ${anime.type || 'TV'}\n\u200b`;
-          }).join('\n')
+            topAiring
+              .map((anime: any, index: number) => {
+                const score = anime.score ? `${anime.score}` : 'N/A';
+                const episodes = anime.episodes ? `${anime.episodes} eps` : 'Ongoing';
+                return (
+                  `**${index + 1}. [${anime.title}](${anime.url})**\n` +
+                  `   ${score} • ${episodes} • ${anime.type || 'TV'}\n\u200b`
+                );
+              })
+              .join('\n'),
         )
         .setFooter({ text: `Showing top ${topAiring.length} airing anime • Powered by Jikan` })
         .setTimestamp();
@@ -68,10 +72,7 @@ export const animairing = {
       await interaction.editReply({ embeds: [embed] });
     } catch (err: any) {
       logger.error({ err }, 'Anime airing command error');
-      await interaction.editReply(`${EMOTES.YIKES} An error occurred while fetching airing anime.`).catch(() => {});
+      await interaction.editReply(`An error occurred while fetching airing anime.`).catch(() => {});
     }
   },
 };
-
-
-

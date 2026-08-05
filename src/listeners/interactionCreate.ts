@@ -1,5 +1,6 @@
 import type { Client, ChatInputCommandInteraction, RepliableInteraction } from 'discord.js';
 import { logger } from '../services/logger.js';
+import { isBlacklisted } from '../services/blacklist.js';
 
 /**
  * Reports an error without assuming the interaction is still unanswered.
@@ -21,6 +22,13 @@ async function reportError(interaction: RepliableInteraction, content: string) {
 export function registerInteractionCreateListener(client: Client) {
   client.on('interactionCreate', async (interaction) => {
     if (!interaction.isChatInputCommand()) return;
+
+    if (isBlacklisted(interaction.user.id, interaction.guildId)) {
+      await interaction
+        .reply({ content: 'You do not have access to this bot.', ephemeral: true })
+        .catch(() => {});
+      return;
+    }
 
     const command = client.commands?.get(interaction.commandName);
     if (!command) {

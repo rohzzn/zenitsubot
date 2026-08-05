@@ -10,7 +10,12 @@ export class GuildQueue {
   public defaultVolume = 0.5; // 0..1
   public idleMinutes = 5;
 
-  constructor(opts: { guildId: string; channelId: string; defaultVolume?: number; idleMinutes?: number }) {
+  constructor(opts: {
+    guildId: string;
+    channelId: string;
+    defaultVolume?: number;
+    idleMinutes?: number;
+  }) {
     this.guildId = opts.guildId;
     this.channelId = opts.channelId;
     if (typeof opts.defaultVolume === 'number') this.defaultVolume = opts.defaultVolume;
@@ -27,7 +32,8 @@ export class GuildQueue {
 
   next(): Track | null {
     if (this.tracks.length === 0) return null;
-    if (this.loop === 'track' && this.currentIndex >= 0) return this.tracks[this.currentIndex] ?? null;
+    if (this.loop === 'track' && this.currentIndex >= 0)
+      return this.tracks[this.currentIndex] ?? null;
 
     if (this.currentIndex + 1 < this.tracks.length) {
       this.currentIndex += 1;
@@ -86,5 +92,3 @@ export class GuildQueue {
     return [...this.tracks];
   }
 }
-
-

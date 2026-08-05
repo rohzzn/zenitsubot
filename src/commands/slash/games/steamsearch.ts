@@ -14,7 +14,7 @@ export const steamsearch = {
       const steamId = interaction.options.getString('steamid', true);
       await searchSteamPlayer(interaction, steamId);
     }
-  }
+  },
 };
 
 async function searchSteamGame(interaction: ChatInputCommandInteraction, query: string) {
@@ -24,7 +24,7 @@ async function searchSteamGame(interaction: ChatInputCommandInteraction, query: 
     // Steam Store API search
     const searchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&cc=us&l=english`;
     const response = await fetch(searchUrl);
-    const data = await response.json() as any;
+    const data = (await response.json()) as any;
 
     if (!data.items || data.items.length === 0) {
       await interaction.editReply('No games found for that query.');
@@ -37,7 +37,7 @@ async function searchSteamGame(interaction: ChatInputCommandInteraction, query: 
     // Get detailed info from Steam API
     const detailsUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}`;
     const detailsResponse = await fetch(detailsUrl);
-    const detailsData = await detailsResponse.json() as any;
+    const detailsData = (await detailsResponse.json()) as any;
 
     const gameData = detailsData[appId]?.data;
     if (!gameData) {
@@ -51,16 +51,26 @@ async function searchSteamGame(interaction: ChatInputCommandInteraction, query: 
       .setDescription(gameData.short_description?.slice(0, 300) || 'No description available.')
       .setURL(`https://store.steampowered.com/app/${appId}`)
       .addFields([
-        { name: 'Price', value: gameData.is_free ? 'Free' : (gameData.price_overview?.final_formatted || 'N/A'), inline: true },
+        {
+          name: 'Price',
+          value: gameData.is_free ? 'Free' : gameData.price_overview?.final_formatted || 'N/A',
+          inline: true,
+        },
         { name: 'Release Date', value: gameData.release_date?.date || 'TBA', inline: true },
         { name: 'Developer', value: gameData.developers?.join(', ') || 'Unknown', inline: true },
-        { name: 'Genres', value: gameData.genres?.map((g: any) => g.description).join(', ') || 'N/A', inline: false },
+        {
+          name: 'Genres',
+          value: gameData.genres?.map((g: any) => g.description).join(', ') || 'N/A',
+          inline: false,
+        },
       ])
       .setImage(gameData.header_image)
       .setFooter({ text: `Steam App ID: ${appId}` });
 
     if (gameData.metacritic) {
-      embed.addFields([{ name: 'Metacritic Score', value: `${gameData.metacritic.score}/100`, inline: true }]);
+      embed.addFields([
+        { name: 'Metacritic Score', value: `${gameData.metacritic.score}/100`, inline: true },
+      ]);
     }
 
     await interaction.editReply({ embeds: [embed] });
@@ -83,8 +93,8 @@ async function searchSteamPlayer(interaction: ChatInputCommandInteraction, steam
 
     // Note: Steam Web API requires API key for player summaries
     // For public data without key, we'll show basic info
-    const profileUrl = steamId.includes('steamcommunity.com') 
-      ? steamId 
+    const profileUrl = steamId.includes('steamcommunity.com')
+      ? steamId
       : `https://steamcommunity.com/id/${extractedId}`;
 
     const embed = new EmbedBuilder()
@@ -93,9 +103,13 @@ async function searchSteamPlayer(interaction: ChatInputCommandInteraction, steam
       .setDescription(`[View Full Profile](${profileUrl})`)
       .addFields([
         { name: 'Steam ID/URL', value: extractedId, inline: false },
-        { name: 'Note', value: 'Full player stats require Steam API key. Visit the profile link for details.', inline: false },
+        {
+          name: 'Note',
+          value: 'Full player stats require Steam API key. Visit the profile link for details.',
+          inline: false,
+        },
       ])
-      .setFooter({ text: '⚡ Steam Player Lookup' });
+      .setFooter({ text: 'Steam Player Lookup' });
 
     await interaction.editReply({ embeds: [embed] });
   } catch (err: any) {
@@ -103,4 +117,3 @@ async function searchSteamPlayer(interaction: ChatInputCommandInteraction, steam
     await interaction.editReply('Failed to search for player.').catch(() => {});
   }
 }
-

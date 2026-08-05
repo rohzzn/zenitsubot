@@ -11,4 +11,3 @@ export const avatar = {
     await interaction.reply({ embeds: [embed] });
   },
 };
-

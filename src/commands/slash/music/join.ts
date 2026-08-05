@@ -17,7 +17,10 @@ export const join = {
       const guildId = interaction.guildId!;
 
       if (shoukaku?.players.get(guildId)) {
-        await interaction.reply({ content: 'Already connected to a voice channel.', ephemeral: true });
+        await interaction.reply({
+          content: 'Already connected to a voice channel.',
+          ephemeral: true,
+        });
         return;
       }
 

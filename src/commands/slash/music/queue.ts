@@ -17,4 +17,3 @@ export const queue = {
     await interaction.reply({ embeds: [embed] });
   },
 };
-

@@ -11,6 +11,7 @@ import { help } from './slash/help.js';
 import { avatar } from './slash/util/avatar.js';
 import { server } from './slash/util/server.js';
 import { user } from './slash/util/user.js';
+import { remind } from './slash/util/remind.js';
 
 // Music
 import { join } from './slash/music/join.js';
@@ -32,6 +33,7 @@ import { kick } from './slash/mod/kick.js';
 import { ban } from './slash/mod/ban.js';
 import { mute } from './slash/mod/mute.js';
 import { purge } from './slash/mod/purge.js';
+import { warn, warnings } from './slash/mod/warn.js';
 
 // Anime
 import { animesearch } from './slash/anime/search.js';
@@ -67,8 +69,26 @@ import { reactionCommands } from './slash/fun/reactions.js';
 import { steamsearch } from './slash/games/steamsearch.js';
 import { freegames } from './slash/games/freegames.js';
 
+// Developer
+import { npm, pypi, crates } from './slash/dev/packages.js';
+import { gh, ghuser } from './slash/dev/github.js';
+import { so } from './slash/dev/stackoverflow.js';
+import { dns, ssl } from './slash/dev/network.js';
+import { base64, hash, uuid, jwt } from './slash/dev/encode.js';
+import { timestamp, httpStatus, regex, color } from './slash/dev/tools.js';
+
 // Admin
 import { welcome } from './slash/admin/welcome.js';
+import { goodbye } from './slash/admin/goodbye.js';
+import { modlog } from './slash/admin/modlog.js';
+import { reactionrole } from './slash/admin/reactionrole.js';
+
+// Owner
+import { status } from './slash/owner/status.js';
+import { logs } from './slash/owner/logs.js';
+import { servers } from './slash/owner/servers.js';
+import { blacklist } from './slash/owner/blacklist.js';
+import { announce } from './slash/owner/announce.js';
 
 export type CommandCategory =
   | 'utility'
@@ -78,7 +98,9 @@ export type CommandCategory =
   | 'economy'
   | 'fun'
   | 'gaming'
-  | 'admin';
+  | 'dev'
+  | 'admin'
+  | 'owner';
 
 export interface CommandHandler {
   data: { name: string };
@@ -102,6 +124,8 @@ export interface CommandDefinition {
   category: CommandCategory;
   /** One-line summary used by /help. */
   summary: string;
+  /** Hidden from /help. Owner-only operator commands set this. */
+  hidden?: boolean;
 }
 
 function reactionDefinitions(): CommandDefinition[] {
@@ -139,7 +163,9 @@ export const COMMANDS: CommandDefinition[] = [
     summary: 'Check bot latency',
   },
   {
-    builder: new SlashCommandBuilder().setName('help').setDescription('Browse every command by category'),
+    builder: new SlashCommandBuilder()
+      .setName('help')
+      .setDescription('Browse every command by category'),
     handler: help,
     category: 'utility',
     summary: 'Browse every command by category',
@@ -167,6 +193,37 @@ export const COMMANDS: CommandDefinition[] = [
     handler: user,
     category: 'utility',
     summary: 'Show information about a member',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('remind')
+      .setDescription('Set a reminder for yourself')
+      .addSubcommand((sub) =>
+        sub
+          .setName('set')
+          .setDescription('Schedule a reminder')
+          .addStringOption((o) =>
+            o
+              .setName('in')
+              .setDescription('How long from now, e.g. 30m, 2h, 1h30m')
+              .setRequired(true),
+          )
+          .addStringOption((o) =>
+            o.setName('text').setDescription('What to remind you about').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) => sub.setName('list').setDescription('List your pending reminders'))
+      .addSubcommand((sub) =>
+        sub
+          .setName('cancel')
+          .setDescription('Cancel a pending reminder')
+          .addStringOption((o) =>
+            o.setName('id').setDescription('The short id shown by /remind list').setRequired(true),
+          ),
+      ),
+    handler: remind,
+    category: 'utility',
+    summary: 'Set, list and cancel personal reminders',
   },
 
   // ------------------------------------------------------------------ Music
@@ -206,7 +263,9 @@ export const COMMANDS: CommandDefinition[] = [
     summary: 'Skip to the next track',
   },
   {
-    builder: new SlashCommandBuilder().setName('stop').setDescription('Stop playback and clear the queue'),
+    builder: new SlashCommandBuilder()
+      .setName('stop')
+      .setDescription('Stop playback and clear the queue'),
     handler: stop,
     category: 'music',
     summary: 'Stop playback and clear the queue',
@@ -218,7 +277,9 @@ export const COMMANDS: CommandDefinition[] = [
     summary: 'View the music queue',
   },
   {
-    builder: new SlashCommandBuilder().setName('now').setDescription('Show the currently playing track'),
+    builder: new SlashCommandBuilder()
+      .setName('now')
+      .setDescription('Show the currently playing track'),
     handler: now,
     category: 'music',
     summary: 'Show the currently playing track',
@@ -269,7 +330,11 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('remove')
       .setDescription('Remove a track from the queue')
       .addIntegerOption((o) =>
-        o.setName('position').setDescription('Position in the queue').setRequired(true).setMinValue(1),
+        o
+          .setName('position')
+          .setDescription('Position in the queue')
+          .setRequired(true)
+          .setMinValue(1),
       ),
     handler: remove,
     category: 'music',
@@ -310,7 +375,9 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('mute')
       .setDescription('Time out a member')
       .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
-      .addUserOption((o) => o.setName('user').setDescription('Member to time out').setRequired(true))
+      .addUserOption((o) =>
+        o.setName('user').setDescription('Member to time out').setRequired(true),
+      )
       .addIntegerOption((o) =>
         o
           .setName('duration')
@@ -340,6 +407,55 @@ export const COMMANDS: CommandDefinition[] = [
     handler: purge,
     category: 'moderation',
     summary: 'Bulk delete recent messages',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('warn')
+      .setDescription('Warn a member')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+      .addUserOption((o) => o.setName('user').setDescription('Member to warn').setRequired(true))
+      .addStringOption((o) =>
+        o.setName('reason').setDescription('Why they are being warned').setRequired(true),
+      ),
+    handler: warn,
+    category: 'moderation',
+    summary: 'Warn a member and record it',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('warnings')
+      .setDescription('View and manage warnings')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
+      .addSubcommand((sub) =>
+        sub
+          .setName('list')
+          .setDescription("View a member's warnings")
+          .addUserOption((o) =>
+            o.setName('user').setDescription('Member to check').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('remove')
+          .setDescription('Remove a single warning')
+          .addStringOption((o) =>
+            o
+              .setName('id')
+              .setDescription('The short id shown by /warnings list')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('clear')
+          .setDescription('Clear every warning for a member')
+          .addUserOption((o) =>
+            o.setName('user').setDescription('Member to clear').setRequired(true),
+          ),
+      ),
+    handler: warnings,
+    category: 'moderation',
+    summary: "View, remove and clear members' warnings",
   },
 
   // ------------------------------------------------------------------ Anime
@@ -507,7 +623,9 @@ export const COMMANDS: CommandDefinition[] = [
     builder: new SlashCommandBuilder()
       .setName('8ball')
       .setDescription('Ask the magic 8-ball a question')
-      .addStringOption((o) => o.setName('question').setDescription('Your question').setRequired(true)),
+      .addStringOption((o) =>
+        o.setName('question').setDescription('Your question').setRequired(true),
+      ),
     handler: eightball,
     category: 'fun',
     summary: 'Ask the magic 8-ball a question',
@@ -517,7 +635,12 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('blackjack')
       .setDescription('Play blackjack with your coins')
       .addIntegerOption((o) =>
-        o.setName('bet').setDescription('Amount to bet').setRequired(true).setMinValue(10).setMaxValue(10000),
+        o
+          .setName('bet')
+          .setDescription('Amount to bet')
+          .setRequired(true)
+          .setMinValue(10)
+          .setMaxValue(10000),
       ),
     handler: blackjack,
     category: 'fun',
@@ -528,7 +651,12 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('slots')
       .setDescription('Spin the slot machine')
       .addIntegerOption((o) =>
-        o.setName('bet').setDescription('Amount to bet').setRequired(true).setMinValue(10).setMaxValue(5000),
+        o
+          .setName('bet')
+          .setDescription('Amount to bet')
+          .setRequired(true)
+          .setMinValue(10)
+          .setMaxValue(5000),
       ),
     handler: slots,
     category: 'fun',
@@ -539,7 +667,12 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('coinflip')
       .setDescription('Flip a coin — double or nothing')
       .addIntegerOption((o) =>
-        o.setName('bet').setDescription('Amount to bet').setRequired(true).setMinValue(10).setMaxValue(50000),
+        o
+          .setName('bet')
+          .setDescription('Amount to bet')
+          .setRequired(true)
+          .setMinValue(10)
+          .setMaxValue(50000),
       )
       .addStringOption((o) =>
         o
@@ -557,14 +690,21 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('dice')
       .setDescription('Roll dice for a multiplier payout')
       .addIntegerOption((o) =>
-        o.setName('bet').setDescription('Amount to bet').setRequired(true).setMinValue(10).setMaxValue(10000),
+        o
+          .setName('bet')
+          .setDescription('Amount to bet')
+          .setRequired(true)
+          .setMinValue(10)
+          .setMaxValue(10000),
       ),
     handler: dice,
     category: 'fun',
     summary: 'Roll dice for a multiplier payout',
   },
   {
-    builder: new SlashCommandBuilder().setName('animequote').setDescription('Get a random anime quote'),
+    builder: new SlashCommandBuilder()
+      .setName('animequote')
+      .setDescription('Get a random anime quote'),
     handler: animequote,
     category: 'fun',
     summary: 'Get a random anime quote',
@@ -617,6 +757,215 @@ export const COMMANDS: CommandDefinition[] = [
     summary: 'Current free game giveaways on Epic',
   },
 
+  // -------------------------------------------------------------- Developer
+  {
+    builder: new SlashCommandBuilder()
+      .setName('npm')
+      .setDescription('Look up an npm package')
+      .addStringOption((o) =>
+        o.setName('package').setDescription('Package name').setRequired(true),
+      ),
+    handler: npm,
+    category: 'dev',
+    summary: 'Look up an npm package',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('pypi')
+      .setDescription('Look up a PyPI package')
+      .addStringOption((o) =>
+        o.setName('package').setDescription('Package name').setRequired(true),
+      ),
+    handler: pypi,
+    category: 'dev',
+    summary: 'Look up a PyPI package',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('crates')
+      .setDescription('Look up a Rust crate')
+      .addStringOption((o) => o.setName('crate').setDescription('Crate name').setRequired(true)),
+    handler: crates,
+    category: 'dev',
+    summary: 'Look up a Rust crate',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('gh')
+      .setDescription('Look up a GitHub repository')
+      .addStringOption((o) =>
+        o.setName('repo').setDescription('owner/repo, e.g. rohzzn/zenitsubot').setRequired(true),
+      ),
+    handler: gh,
+    category: 'dev',
+    summary: 'Look up a GitHub repository',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('ghuser')
+      .setDescription('Look up a GitHub user')
+      .addStringOption((o) =>
+        o.setName('username').setDescription('GitHub username').setRequired(true),
+      ),
+    handler: ghuser,
+    category: 'dev',
+    summary: 'Look up a GitHub user',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('so')
+      .setDescription('Search Stack Overflow')
+      .addStringOption((o) =>
+        o.setName('query').setDescription('What to search for').setRequired(true),
+      ),
+    handler: so,
+    category: 'dev',
+    summary: 'Search Stack Overflow',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('dns')
+      .setDescription('Look up DNS records for a domain')
+      .addStringOption((o) => o.setName('domain').setDescription('Domain name').setRequired(true))
+      .addStringOption((o) =>
+        o
+          .setName('type')
+          .setDescription('Limit to one record type')
+          .addChoices(
+            { name: 'A', value: 'A' },
+            { name: 'AAAA', value: 'AAAA' },
+            { name: 'CNAME', value: 'CNAME' },
+            { name: 'MX', value: 'MX' },
+            { name: 'TXT', value: 'TXT' },
+            { name: 'NS', value: 'NS' },
+          ),
+      ),
+    handler: dns,
+    category: 'dev',
+    summary: 'Look up DNS records for a domain',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('ssl')
+      .setDescription("Inspect a domain's TLS certificate")
+      .addStringOption((o) => o.setName('domain').setDescription('Domain name').setRequired(true)),
+    handler: ssl,
+    category: 'dev',
+    summary: "Inspect a domain's TLS certificate and expiry",
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('base64')
+      .setDescription('Encode or decode base64')
+      .addStringOption((o) =>
+        o
+          .setName('mode')
+          .setDescription('Direction')
+          .setRequired(true)
+          .addChoices({ name: 'Encode', value: 'encode' }, { name: 'Decode', value: 'decode' }),
+      )
+      .addStringOption((o) =>
+        o.setName('text').setDescription('Text to convert').setRequired(true),
+      ),
+    handler: base64,
+    category: 'dev',
+    summary: 'Encode or decode base64',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('hash')
+      .setDescription('Hash text with a chosen algorithm')
+      .addStringOption((o) =>
+        o
+          .setName('algorithm')
+          .setDescription('Hash algorithm')
+          .setRequired(true)
+          .addChoices(
+            { name: 'MD5', value: 'md5' },
+            { name: 'SHA-1', value: 'sha1' },
+            { name: 'SHA-256', value: 'sha256' },
+            { name: 'SHA-512', value: 'sha512' },
+          ),
+      )
+      .addStringOption((o) => o.setName('text').setDescription('Text to hash').setRequired(true)),
+    handler: hash,
+    category: 'dev',
+    summary: 'Hash text with MD5, SHA-1, SHA-256 or SHA-512',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('uuid')
+      .setDescription('Generate random UUIDs')
+      .addIntegerOption((o) =>
+        o.setName('count').setDescription('How many (1-20)').setMinValue(1).setMaxValue(20),
+      ),
+    handler: uuid,
+    category: 'dev',
+    summary: 'Generate random UUIDs',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('jwt')
+      .setDescription('Decode a JWT (signature is not verified)')
+      .addStringOption((o) =>
+        o.setName('token').setDescription('The token to decode').setRequired(true),
+      ),
+    handler: jwt,
+    category: 'dev',
+    summary: 'Decode a JWT header and payload',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('timestamp')
+      .setDescription('Generate Discord timestamp codes')
+      .addStringOption((o) =>
+        o.setName('when').setDescription('now, +30m, a Unix timestamp, or a date'),
+      ),
+    handler: timestamp,
+    category: 'dev',
+    summary: 'Generate Discord timestamp codes',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('http')
+      .setDescription('Explain an HTTP status code')
+      .addIntegerOption((o) =>
+        o
+          .setName('code')
+          .setDescription('Status code')
+          .setRequired(true)
+          .setMinValue(100)
+          .setMaxValue(599),
+      ),
+    handler: httpStatus,
+    category: 'dev',
+    summary: 'Explain an HTTP status code',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('regex')
+      .setDescription('Test a regular expression against sample text')
+      .addStringOption((o) => o.setName('pattern').setDescription('The pattern').setRequired(true))
+      .addStringOption((o) =>
+        o.setName('text').setDescription('Text to match against').setRequired(true),
+      )
+      .addStringOption((o) => o.setName('flags').setDescription('Regex flags, default g')),
+    handler: regex,
+    category: 'dev',
+    summary: 'Test a regular expression and show captures',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('color')
+      .setDescription('Convert a hex colour and check contrast')
+      .addStringOption((o) =>
+        o.setName('hex').setDescription('Hex colour, e.g. #5865F2').setRequired(true),
+      ),
+    handler: color,
+    category: 'dev',
+    summary: 'Convert a hex colour and check contrast',
+  },
+
   // ------------------------------------------------------------------ Admin
   {
     builder: new SlashCommandBuilder()
@@ -643,24 +992,195 @@ export const COMMANDS: CommandDefinition[] = [
     category: 'admin',
     summary: 'Configure welcome messages',
   },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('goodbye')
+      .setDescription('Configure goodbye messages')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .addSubcommand((sub) =>
+        sub
+          .setName('setup')
+          .setDescription('Configure the goodbye message')
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Goodbye channel').setRequired(true),
+          )
+          .addStringOption((o) =>
+            o
+              .setName('message')
+              .setDescription('Message text — {user}, {server} and {memberCount} are substituted'),
+          ),
+      )
+      .addSubcommand((sub) => sub.setName('disable').setDescription('Disable goodbye messages'))
+      .addSubcommand((sub) => sub.setName('test').setDescription('Send a test goodbye message')),
+    handler: goodbye,
+    category: 'admin',
+    summary: 'Configure goodbye messages',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('modlog')
+      .setDescription('Configure the moderation log channel')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .addSubcommand((sub) =>
+        sub
+          .setName('set')
+          .setDescription('Choose where moderation actions are logged')
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Log channel').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('disable').setDescription('Stop logging moderation actions'),
+      )
+      .addSubcommand((sub) => sub.setName('status').setDescription('Show the current log channel')),
+    handler: modlog,
+    category: 'admin',
+    summary: 'Configure the moderation log channel',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('reactionrole')
+      .setDescription('Grant roles when members react to a message')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageRoles)
+      .addSubcommand((sub) =>
+        sub
+          .setName('add')
+          .setDescription('Bind an emoji on a message to a role')
+          .addStringOption((o) =>
+            o.setName('message_id').setDescription('Id of the target message').setRequired(true),
+          )
+          .addStringOption((o) =>
+            o.setName('emoji').setDescription('Emoji to watch').setRequired(true),
+          )
+          .addRoleOption((o) => o.setName('role').setDescription('Role to grant').setRequired(true))
+          .addChannelOption((o) =>
+            o.setName('channel').setDescription('Channel holding the message, defaults to here'),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('remove')
+          .setDescription('Remove a binding')
+          .addStringOption((o) =>
+            o.setName('message_id').setDescription('Id of the target message').setRequired(true),
+          )
+          .addStringOption((o) =>
+            o.setName('emoji').setDescription('Emoji to unbind').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('List reaction roles in this server'),
+      ),
+    handler: reactionrole,
+    category: 'admin',
+    summary: 'Grant roles when members react to a message',
+  },
+
+  // ------------------------------------------------------------------ Owner
+  {
+    builder: new SlashCommandBuilder()
+      .setName('status')
+      .setDescription('Bot health, memory, Lavalink and database status'),
+    handler: status,
+    category: 'owner',
+    summary: 'Bot health, memory, Lavalink and database status',
+    hidden: true,
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('logs')
+      .setDescription('Show recent warnings and errors')
+      .addIntegerOption((o) =>
+        o.setName('count').setDescription('How many entries (1-25)').setMinValue(1).setMaxValue(25),
+      ),
+    handler: logs,
+    category: 'owner',
+    summary: 'Show recent warnings and errors',
+    hidden: true,
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('servers')
+      .setDescription('List servers the bot is in'),
+    handler: servers,
+    category: 'owner',
+    summary: 'List servers the bot is in',
+    hidden: true,
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('blacklist')
+      .setDescription('Block users or servers from using the bot')
+      .addSubcommand((sub) =>
+        sub
+          .setName('add')
+          .setDescription('Block a user or server')
+          .addStringOption((o) =>
+            o.setName('id').setDescription('User or guild id').setRequired(true),
+          )
+          .addStringOption((o) =>
+            o
+              .setName('type')
+              .setDescription('What the id refers to')
+              .setRequired(true)
+              .addChoices({ name: 'User', value: 'user' }, { name: 'Guild', value: 'guild' }),
+          )
+          .addStringOption((o) => o.setName('reason').setDescription('Why they are blocked')),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('remove')
+          .setDescription('Unblock a user or server')
+          .addStringOption((o) =>
+            o.setName('id').setDescription('User or guild id').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) => sub.setName('list').setDescription('List blocked users and servers')),
+    handler: blacklist,
+    category: 'owner',
+    summary: 'Block users or servers from using the bot',
+    hidden: true,
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('announce')
+      .setDescription('Post an announcement to every server')
+      .addStringOption((o) =>
+        o.setName('title').setDescription('Announcement title').setRequired(true),
+      )
+      .addStringOption((o) =>
+        o.setName('message').setDescription('Announcement body').setRequired(true),
+      )
+      .addBooleanOption((o) =>
+        o.setName('dry_run').setDescription('Preview without sending, defaults to true'),
+      ),
+    handler: announce,
+    category: 'owner',
+    summary: 'Post an announcement to every server',
+    hidden: true,
+  },
 ];
 
-export const CATEGORY_LABELS: Record<CommandCategory, { label: string; emoji: string }> = {
-  utility: { label: 'Utility', emoji: '🔧' },
-  music: { label: 'Music', emoji: '🎵' },
-  moderation: { label: 'Moderation', emoji: '🛡️' },
-  anime: { label: 'Anime', emoji: '📺' },
-  economy: { label: 'Economy', emoji: '💰' },
-  fun: { label: 'Fun & Games', emoji: '🎲' },
-  gaming: { label: 'Gaming', emoji: '🎮' },
-  admin: { label: 'Admin', emoji: '⚙️' },
+export const CATEGORY_LABELS: Record<CommandCategory, { label: string; blurb: string }> = {
+  music: { label: 'Music', blurb: 'Play and control audio in voice channels' },
+  fun: { label: 'Fun', blurb: 'Games, gambling and reaction GIFs' },
+  economy: { label: 'Economy', blurb: 'Coins, levels and the shop' },
+  anime: { label: 'Anime', blurb: 'Search MyAnimeList and track new episodes' },
+  dev: { label: 'Developer', blurb: 'Package lookups, encoding and network tools' },
+  utility: { label: 'Utility', blurb: 'Everyday helpers and reminders' },
+  moderation: { label: 'Moderation', blurb: 'Warnings, timeouts, bans and purges' },
+  gaming: { label: 'Gaming', blurb: 'Steam and free game giveaways' },
+  admin: { label: 'Admin', blurb: 'Server configuration' },
+  owner: { label: 'Owner', blurb: 'Bot operator tools' },
 };
 
+/** Display order in /help. Owner is excluded because its commands are hidden. */
 export const CATEGORY_ORDER: CommandCategory[] = [
   'music',
   'fun',
   'economy',
   'anime',
+  'dev',
   'utility',
   'moderation',
   'gaming',
@@ -670,3 +1190,10 @@ export const CATEGORY_ORDER: CommandCategory[] = [
 export function commandsByCategory(category: CommandCategory): CommandDefinition[] {
   return COMMANDS.filter((c) => c.category === category);
 }
+
+/** Commands shown in /help — everything except owner-only operator tools. */
+export function visibleCommands(category: CommandCategory): CommandDefinition[] {
+  return commandsByCategory(category).filter((c) => !c.hidden);
+}
+
+export const VISIBLE_COMMAND_COUNT = COMMANDS.filter((c) => !c.hidden).length;

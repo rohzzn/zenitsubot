@@ -13,18 +13,20 @@ export function registerReadyListener(client: Client) {
     try {
       const cfg = loadConfig();
       const rest = new REST({ version: '10' }).setToken(cfg.DISCORD_BOT_TOKEN);
-      
+
       const commands = [
         // General
         new SlashCommandBuilder().setName('ping').setDescription('Show bot latency'),
         new SlashCommandBuilder().setName('help').setDescription('Show all commands'),
-        
+
         // Music
         new SlashCommandBuilder().setName('join').setDescription('Join your voice channel'),
         new SlashCommandBuilder()
           .setName('play')
           .setDescription('Play a song (name, artist, YouTube, or Spotify URL)')
-          .addStringOption((o) => o.setName('query').setDescription('Song name, artist, or URL').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('query').setDescription('Song name, artist, or URL').setRequired(true),
+          ),
         new SlashCommandBuilder().setName('pause').setDescription('Pause the player'),
         new SlashCommandBuilder().setName('resume').setDescription('Resume playback'),
         new SlashCommandBuilder().setName('skip').setDescription('Skip current track'),
@@ -34,20 +36,30 @@ export function registerReadyListener(client: Client) {
         new SlashCommandBuilder()
           .setName('volume')
           .setDescription('Set player volume (0-100)')
-          .addIntegerOption((o) => o.setName('level').setDescription('Volume level').setRequired(true).setMinValue(0).setMaxValue(100)),
+          .addIntegerOption((o) =>
+            o
+              .setName('level')
+              .setDescription('Volume level')
+              .setRequired(true)
+              .setMinValue(0)
+              .setMaxValue(100),
+          ),
         new SlashCommandBuilder()
           .setName('loop')
           .setDescription('Set loop mode')
-          .addStringOption((o) => 
-            o.setName('mode').setDescription('Loop mode').setRequired(true)
+          .addStringOption((o) =>
+            o
+              .setName('mode')
+              .setDescription('Loop mode')
+              .setRequired(true)
               .addChoices(
                 { name: 'Off', value: 'off' },
                 { name: 'Track', value: 'track' },
-                { name: 'Queue', value: 'queue' }
-              )
+                { name: 'Queue', value: 'queue' },
+              ),
           ),
         new SlashCommandBuilder().setName('shuffle').setDescription('Shuffle the queue'),
-        
+
         // Moderation
         new SlashCommandBuilder()
           .setName('kick')
@@ -66,14 +78,23 @@ export function registerReadyListener(client: Client) {
           .setDescription('Timeout a member')
           .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers)
           .addUserOption((o) => o.setName('user').setDescription('User to mute').setRequired(true))
-          .addIntegerOption((o) => o.setName('duration').setDescription('Duration in seconds').setRequired(true))
+          .addIntegerOption((o) =>
+            o.setName('duration').setDescription('Duration in seconds').setRequired(true),
+          )
           .addStringOption((o) => o.setName('reason').setDescription('Reason for mute')),
         new SlashCommandBuilder()
           .setName('purge')
           .setDescription('Bulk delete messages')
           .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
-          .addIntegerOption((o) => o.setName('count').setDescription('Number of messages (1-100)').setRequired(true).setMinValue(1).setMaxValue(100)),
-        
+          .addIntegerOption((o) =>
+            o
+              .setName('count')
+              .setDescription('Number of messages (1-100)')
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(100),
+          ),
+
         // Utility
         new SlashCommandBuilder()
           .setName('avatar')
@@ -84,7 +105,7 @@ export function registerReadyListener(client: Client) {
           .setName('user')
           .setDescription('Show user info')
           .addUserOption((o) => o.setName('user').setDescription('User (defaults to you)')),
-        
+
         // Anime
         new SlashCommandBuilder()
           .setName('anime')
@@ -92,7 +113,9 @@ export function registerReadyListener(client: Client) {
         new SlashCommandBuilder()
           .setName('animesearch')
           .setDescription('Search for anime on MyAnimeList')
-          .addStringOption((o) => o.setName('query').setDescription('Anime name to search').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('query').setDescription('Anime name to search').setRequired(true),
+          ),
         new SlashCommandBuilder()
           .setName('animeinfo')
           .setDescription('Get detailed anime info with reviews and ratings')
@@ -103,7 +126,9 @@ export function registerReadyListener(client: Client) {
         new SlashCommandBuilder()
           .setName('animecharacter')
           .setDescription('Search for anime characters')
-          .addStringOption((o) => o.setName('name').setDescription('Character name').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('name').setDescription('Character name').setRequired(true),
+          ),
         new SlashCommandBuilder()
           .setName('animairing')
           .setDescription('View currently airing anime this season'),
@@ -115,52 +140,64 @@ export function registerReadyListener(client: Client) {
             sub
               .setName('add')
               .setDescription('Add an anime to track')
-              .addStringOption((o) => o.setName('name').setDescription('Anime name').setRequired(true))
-              .addChannelOption((o) => o.setName('channel').setDescription('Alert channel').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('name').setDescription('Anime name').setRequired(true),
+              )
+              .addChannelOption((o) =>
+                o.setName('channel').setDescription('Alert channel').setRequired(true),
+              ),
           )
           .addSubcommand((sub) =>
             sub
               .setName('remove')
               .setDescription('Remove an anime from tracking')
-              .addStringOption((o) => o.setName('name').setDescription('Anime name').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('name').setDescription('Anime name').setRequired(true),
+              ),
           )
           .addSubcommand((sub) => sub.setName('list').setDescription('List tracked anime')),
-        
+
         // Economy
         new SlashCommandBuilder()
           .setName('balance')
-          .setDescription('Check your or someone else\'s balance and level')
+          .setDescription("Check your or someone else's balance and level")
           .addUserOption((o) => o.setName('user').setDescription('User to check')),
-        new SlashCommandBuilder()
-          .setName('daily')
-          .setDescription('Claim your daily coins!'),
+        new SlashCommandBuilder().setName('daily').setDescription('Claim your daily coins!'),
         new SlashCommandBuilder()
           .setName('leaderboard')
           .setDescription('View server leaderboard')
-          .addStringOption((o) => 
-            o.setName('type').setDescription('Leaderboard type')
-              .addChoices(
-                { name: 'Coins', value: 'coins' },
-                { name: 'Levels', value: 'levels' }
-              )
+          .addStringOption((o) =>
+            o
+              .setName('type')
+              .setDescription('Leaderboard type')
+              .addChoices({ name: 'Coins', value: 'coins' }, { name: 'Levels', value: 'levels' }),
           ),
-        
+
         // Fun
         new SlashCommandBuilder()
           .setName('8ball')
           .setDescription('Ask Zenitsu a yes/no question')
-          .addStringOption((o) => o.setName('question').setDescription('Your question').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('question').setDescription('Your question').setRequired(true),
+          ),
         new SlashCommandBuilder()
           .setName('blackjack')
           .setDescription('Play blackjack and bet your coins!')
-          .addIntegerOption((o) => o.setName('bet').setDescription('Amount to bet (10-10000)').setRequired(true).setMinValue(10).setMaxValue(10000)),
+          .addIntegerOption((o) =>
+            o
+              .setName('bet')
+              .setDescription('Amount to bet (10-10000)')
+              .setRequired(true)
+              .setMinValue(10)
+              .setMaxValue(10000),
+          ),
         new SlashCommandBuilder()
           .setName('animequote')
           .setDescription('Get an inspirational anime quote'),
         new SlashCommandBuilder()
           .setName('icebreaker')
           .setDescription('Get a random conversation starter'),
-        
+
         // Admin
         new SlashCommandBuilder()
           .setName('welcome')
@@ -170,8 +207,14 @@ export function registerReadyListener(client: Client) {
             sub
               .setName('setup')
               .setDescription('Configure welcome messages')
-              .addChannelOption((o) => o.setName('channel').setDescription('Welcome channel').setRequired(true))
-              .addStringOption((o) => o.setName('message').setDescription('Custom message (use {user}, {server}, {memberCount})'))
+              .addChannelOption((o) =>
+                o.setName('channel').setDescription('Welcome channel').setRequired(true),
+              )
+              .addStringOption((o) =>
+                o
+                  .setName('message')
+                  .setDescription('Custom message (use {user}, {server}, {memberCount})'),
+              ),
           )
           .addSubcommand((sub) => sub.setName('disable').setDescription('Disable welcome messages'))
           .addSubcommand((sub) => sub.setName('test').setDescription('Test welcome message')),
@@ -183,24 +226,33 @@ export function registerReadyListener(client: Client) {
             sub
               .setName('add')
               .setDescription('Add a stream alert')
-              .addStringOption((o) => 
-                o.setName('platform').setDescription('Platform').setRequired(true)
+              .addStringOption((o) =>
+                o
+                  .setName('platform')
+                  .setDescription('Platform')
+                  .setRequired(true)
                   .addChoices(
                     { name: 'Twitch', value: 'twitch' },
-                    { name: 'YouTube', value: 'youtube' }
-                  )
+                    { name: 'YouTube', value: 'youtube' },
+                  ),
               )
-              .addStringOption((o) => o.setName('id').setDescription('Channel ID or username').setRequired(true))
-              .addChannelOption((o) => o.setName('channel').setDescription('Alert channel').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('id').setDescription('Channel ID or username').setRequired(true),
+              )
+              .addChannelOption((o) =>
+                o.setName('channel').setDescription('Alert channel').setRequired(true),
+              ),
           )
           .addSubcommand((sub) =>
             sub
               .setName('remove')
               .setDescription('Remove a stream alert')
-              .addStringOption((o) => o.setName('id').setDescription('Channel ID or username').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('id').setDescription('Channel ID or username').setRequired(true),
+              ),
           )
           .addSubcommand((sub) => sub.setName('list').setDescription('List all stream alerts')),
-        
+
         // Game commands
         new SlashCommandBuilder()
           .setName('steamsearch')
@@ -209,13 +261,17 @@ export function registerReadyListener(client: Client) {
             sub
               .setName('game')
               .setDescription('Search for a game on Steam')
-              .addStringOption((o) => o.setName('query').setDescription('Game name').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('query').setDescription('Game name').setRequired(true),
+              ),
           )
           .addSubcommand((sub) =>
             sub
               .setName('player')
               .setDescription('Search for a Steam player')
-              .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true),
+              ),
           ),
         new SlashCommandBuilder()
           .setName('freegames')
@@ -223,11 +279,15 @@ export function registerReadyListener(client: Client) {
         new SlashCommandBuilder()
           .setName('gamesearch')
           .setDescription('Search for game info with ratings and reviews')
-          .addStringOption((o) => o.setName('game').setDescription('Game name to search').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('game').setDescription('Game name to search').setRequired(true),
+          ),
         new SlashCommandBuilder()
           .setName('steamprofile')
           .setDescription('Get detailed Steam profile information')
-          .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true),
+          ),
         new SlashCommandBuilder()
           .setName('csgo')
           .setDescription('CS:GO player stats and inventory')
@@ -235,21 +295,29 @@ export function registerReadyListener(client: Client) {
             sub
               .setName('stats')
               .setDescription('View CS:GO competitive stats')
-              .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true),
+              ),
           )
           .addSubcommand((sub) =>
             sub
               .setName('inventory')
               .setDescription('View CS:GO inventory')
-              .addStringOption((o) => o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true))
+              .addStringOption((o) =>
+                o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true),
+              ),
           ),
         new SlashCommandBuilder()
           .setName('faceit')
           .setDescription('Search Faceit player profile and stats')
-          .addStringOption((o) => o.setName('username').setDescription('Faceit username').setRequired(true)),
+          .addStringOption((o) =>
+            o.setName('username').setDescription('Faceit username').setRequired(true),
+          ),
       ];
 
-      await rest.put(Routes.applicationCommands(cfg.DISCORD_APP_ID), { body: commands.map(c => c.toJSON()) });
+      await rest.put(Routes.applicationCommands(cfg.DISCORD_APP_ID), {
+        body: commands.map((c) => c.toJSON()),
+      });
       logger.info({ count: commands.length }, 'Slash commands registered');
     } catch (err) {
       logger.error({ err }, 'Failed to register slash commands');

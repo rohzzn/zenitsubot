@@ -1,9 +1,10 @@
 import type { Client, ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { writeModLog } from '../../../services/modLog.js';
 
 export const kick = {
   data: { name: 'kick' },
-  category: 'mod',
-  async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
+  category: 'moderation',
+  async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     const member = interaction.options.getMember('user') as GuildMember | null;
     const reason = interaction.options.getString('reason') || 'No reason provided';
 
@@ -20,7 +21,16 @@ export const kick = {
       return;
     }
 
+    const { user } = member;
     await member.kick(reason);
-    await interaction.reply({ content: `Kicked ${member.user.tag}. Reason: ${reason}` });
+    await interaction.reply({ content: `Kicked ${user.tag}. Reason: ${reason}` });
+
+    await writeModLog(client, {
+      guildId: interaction.guildId!,
+      action: 'Kick',
+      target: user,
+      moderator: interaction.user,
+      reason,
+    });
   },
 };

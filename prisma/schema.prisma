@@ -17,6 +17,7 @@ model GuildConfig {
   welcomeMessage     String?
   goodbyeEnabled     Boolean  @default(false)
   goodbyeChannelId   String?
+  goodbyeMessage     String?
   musicDefaultVolume Int      @default(50)
   musicIdleMinutes   Int      @default(5)
   musicAutoplay      Boolean  @default(false)
@@ -27,11 +28,14 @@ model GuildConfig {
 model Reminder {
   id        String   @id @default(cuid())
   guildId   String
+  channelId String   @default("") // where to deliver; DM fallback when empty
   userId    String
   text      String
   dueAt     DateTime
   createdAt DateTime @default(now())
   completed Boolean  @default(false)
+
+  @@index([completed, dueAt])
 }
 
 model ReactionRole {
@@ -42,6 +46,29 @@ model ReactionRole {
   emoji       String
   roleId      String
   createdAt   DateTime @default(now())
+
+  @@unique([messageId, emoji])
+  @@index([guildId])
+}
+
+model Warning {
+  id          String   @id @default(cuid())
+  guildId     String
+  userId      String
+  moderatorId String
+  reason      String
+  createdAt   DateTime @default(now())
+
+  @@index([guildId, userId])
+}
+
+/// Users and guilds the bot owner has blocked from using the bot.
+model Blacklist {
+  id        String   @id @default(cuid())
+  targetId  String   @unique
+  type      String   // "user" or "guild"
+  reason    String?
+  createdAt DateTime @default(now())
 }
 
 model AnimeAlert {

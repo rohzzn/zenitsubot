@@ -14,23 +14,24 @@ interface Reaction {
   verb: string;
   /** Shown when the command is used without a target. */
   solo: string;
-  emoji: string;
 }
 
 const REACTIONS: Reaction[] = [
-  { name: 'hug', verb: 'hugs', solo: 'hugs themselves', emoji: '🤗' },
-  { name: 'kiss', verb: 'kisses', solo: 'blows a kiss to the void', emoji: '😘' },
-  { name: 'cuddle', verb: 'cuddles', solo: 'cuddles a pillow', emoji: '🥰' },
-  { name: 'pat', verb: 'pats', solo: 'pats themselves on the head', emoji: '✋' },
-  { name: 'slap', verb: 'slaps', solo: 'slaps the air', emoji: '👋' },
-  { name: 'punch', verb: 'punches', solo: 'punches the air', emoji: '👊' },
+  { name: 'hug', verb: 'hugs', solo: 'hugs themselves' },
+  { name: 'kiss', verb: 'kisses', solo: 'blows a kiss to the void' },
+  { name: 'cuddle', verb: 'cuddles', solo: 'cuddles a pillow' },
+  { name: 'pat', verb: 'pats', solo: 'pats themselves on the head' },
+  { name: 'slap', verb: 'slaps', solo: 'slaps the air' },
+  { name: 'punch', verb: 'punches', solo: 'punches the air' },
 ];
 
 async function fetchGif(endpoint: string): Promise<{ url: string; animeName?: string } | null> {
   const response = await fetch(`${API_BASE}/${endpoint}`);
   if (!response.ok) return null;
 
-  const data = (await response.json()) as { results?: Array<{ url?: string; anime_name?: string }> };
+  const data = (await response.json()) as {
+    results?: Array<{ url?: string; anime_name?: string }>;
+  };
   const result = data.results?.[0];
   if (!result?.url) return null;
 
@@ -49,15 +50,17 @@ function buildReactionCommand(reaction: Reaction) {
       try {
         const gif = await fetchGif(reaction.name);
         if (!gif) {
-          await interaction.editReply(`Could not find a ${reaction.name} GIF right now. Try again!`);
+          await interaction.editReply(
+            `Could not find a ${reaction.name} GIF right now. Try again!`,
+          );
           return;
         }
 
         const actor = interaction.user.username;
         const description =
           !target || target.id === interaction.user.id
-            ? `**${actor}** ${reaction.solo}! ${reaction.emoji}`
-            : `**${actor}** ${reaction.verb} **${target.username}**! ${reaction.emoji}`;
+            ? `**${actor}** ${reaction.solo}!`
+            : `**${actor}** ${reaction.verb} **${target.username}**!`;
 
         const embed = new EmbedBuilder()
           .setColor(ZENITSU_THEME.PRIMARY)
@@ -69,7 +72,9 @@ function buildReactionCommand(reaction: Reaction) {
         await interaction.editReply({ embeds: [embed] });
       } catch (err) {
         logger.error({ err, reaction: reaction.name }, 'Reaction command failed');
-        await interaction.editReply(`Failed to get a ${reaction.name} GIF. Try again!`).catch(() => {});
+        await interaction
+          .editReply(`Failed to get a ${reaction.name} GIF. Try again!`)
+          .catch(() => {});
       }
     },
   };

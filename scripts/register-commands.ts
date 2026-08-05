@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
-import { COMMANDS, CATEGORY_LABELS, CATEGORY_ORDER, commandsByCategory } from '../src/commands/index.js';
+import {
+  COMMANDS,
+  CATEGORY_LABELS,
+  CATEGORY_ORDER,
+  commandsByCategory,
+} from '../src/commands/index.js';
 
 function getEnv(name: string): string {
   const v = process.env[name];
@@ -23,7 +28,9 @@ async function main() {
   for (const { builder, handler } of COMMANDS) {
     const builderName = builder.toJSON().name;
     if (builderName !== handler.data.name) {
-      throw new Error(`Command definition mismatch: builder "${builderName}" vs handler "${handler.data.name}"`);
+      throw new Error(
+        `Command definition mismatch: builder "${builderName}" vs handler "${handler.data.name}"`,
+      );
     }
   }
 
@@ -35,11 +42,16 @@ async function main() {
   });
 
   console.log('\nRegistered:');
-  for (const category of CATEGORY_ORDER) {
+  // CATEGORY_ORDER drives /help and omits owner commands, so append them here.
+  const categories = [...CATEGORY_ORDER, 'owner' as const];
+
+  for (const category of categories) {
     const commands = commandsByCategory(category);
     if (!commands.length) continue;
-    const { label, emoji } = CATEGORY_LABELS[category];
-    console.log(`\n  ${emoji} ${label} (${commands.length})`);
+
+    const { label } = CATEGORY_LABELS[category];
+    const note = commands.every((c) => c.hidden) ? ' [hidden from /help]' : '';
+    console.log(`\n  ${label} (${commands.length})${note}`);
     console.log(`    ${commands.map((c) => c.handler.data.name).join(', ')}`);
   }
 

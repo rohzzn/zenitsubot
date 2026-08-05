@@ -17,5 +17,3 @@ export function registerGuildCreateListener(client: Client) {
     }
   });
 }
-
-

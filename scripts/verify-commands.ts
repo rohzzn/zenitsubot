@@ -92,7 +92,9 @@ async function compareWithDiscord(): Promise<number> {
 
   for (const name of localNames) {
     if (!remoteNames.has(name)) {
-      console.error(`  MISSING  /${name} exists locally but is not registered — run register:commands`);
+      console.error(
+        `  MISSING  /${name} exists locally but is not registered — run register:commands`,
+      );
       failures++;
     }
   }

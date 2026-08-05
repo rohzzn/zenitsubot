@@ -13,4 +13,3 @@ export const shuffle = {
     await interaction.reply({ content: 'Queue shuffled.', ephemeral: true });
   },
 };
-

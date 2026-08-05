@@ -25,14 +25,12 @@ export const freegames = {
 
       const embed = new EmbedBuilder()
         .setColor(ZENITSU_THEME.PRIMARY)
-        .setTitle(`${EMOTES.FLUENT_SPARKLES} Epic Games — Free This Week`)
+        .setTitle(`Epic Games — Free This Week`)
         .setFooter({ text: 'Epic rotates free games every Thursday at 11am ET' })
         .setTimestamp();
 
       if (games.length === 0) {
-        embed.setDescription(
-          `${EMOTES.CONFUSED_CAT} No free games on Epic right now. Check back Thursday!`,
-        );
+        embed.setDescription(`No free games on Epic right now. Check back Thursday!`);
         await interaction.editReply({ embeds: [embed] });
         return;
       }
@@ -55,7 +53,7 @@ export const freegames = {
     } catch (err) {
       logger.error({ err }, 'Free games fetch error');
       await interaction
-        .editReply(`${EMOTES.NOT_LIKE_THIS} Failed to fetch free games. Please try again later.`)
+        .editReply(`Failed to fetch free games. Please try again later.`)
         .catch(() => {});
     }
   },
@@ -92,7 +90,10 @@ async function fetchEpicFreeGames(): Promise<FreeGame[]> {
       images[0]?.url;
 
     const slug =
-      game.productSlug || game.urlSlug || game.offerMappings?.[0]?.pageSlug || game.catalogNs?.mappings?.[0]?.pageSlug;
+      game.productSlug ||
+      game.urlSlug ||
+      game.offerMappings?.[0]?.pageSlug ||
+      game.catalogNs?.mappings?.[0]?.pageSlug;
     if (!slug) continue;
 
     games.push({

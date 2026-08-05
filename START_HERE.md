@@ -131,7 +131,7 @@ npm run register:commands
 npm run verify:commands
 ```
 
-## 🧭 Adding a command
+## Adding a command
 
 Every command is defined once, in `src/commands/index.ts`, which pairs the
 Discord-facing `SlashCommandBuilder` with the handler that reads its options.
@@ -143,7 +143,28 @@ names drifted apart and commands broke silently at runtime.
 3. `npm run verify:commands`, then `npm run register:commands`
 
 `/help` and the register script both read from that list, so neither needs
-updating by hand.
+updating by hand. Set `hidden: true` to keep a command out of `/help`.
+
+**Bot output contains no emoji.** `EMOTES` in `src/utils/constants.ts` is kept
+only so old call sites compile — every value is an empty string. Write plain
+text instead.
+
+## Owner-only commands
+
+`/status`, `/logs`, `/servers`, `/blacklist` and `/announce` are gated on
+`OWNER_DISCORD_ID` in `.env`. **If that variable is unset, they deny everyone**,
+including you — set it to your Discord user id.
+
+```
+OWNER_DISCORD_ID=your_discord_user_id
+```
+
+## Optional environment variables
+
+| Variable | Effect if unset |
+| --- | --- |
+| `OWNER_DISCORD_ID` | Owner commands refuse everyone |
+| `GITHUB_TOKEN` | `/gh` and `/ghuser` fall back to 60 requests/hour per IP instead of 5,000 |
 
 ---
 

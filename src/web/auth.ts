@@ -58,7 +58,7 @@ export function registerAuth(app: express.Express) {
       try {
         const redirect = (req.session as any).redirect || '/dashboard';
         delete (req.session as any).redirect;
-        
+
         // Save session before redirect
         req.session.save((err) => {
           if (err) {
@@ -107,5 +107,3 @@ export function ensureAuth(req: Request, res: Response, next: NextFunction) {
   if (isAuthed) return next();
   return res.redirect('/auth/login');
 }
-
-

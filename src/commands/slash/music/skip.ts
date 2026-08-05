@@ -19,7 +19,9 @@ export const skip = {
 
     if (advanced) {
       const track = client.playerManager.getQueue(guildId)?.now();
-      await interaction.reply({ content: `Skipped. Now playing: **${track?.title ?? 'next track'}**` });
+      await interaction.reply({
+        content: `Skipped. Now playing: **${track?.title ?? 'next track'}**`,
+      });
       return;
     }
 

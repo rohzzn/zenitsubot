@@ -6,5 +6,3 @@ export function registerGuildDeleteListener(client: Client) {
     logger.info({ guild: guild.id }, 'Removed from guild');
   });
 }
-
-
