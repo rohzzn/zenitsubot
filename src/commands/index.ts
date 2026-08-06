@@ -15,6 +15,7 @@ import { remind } from './slash/util/remind.js';
 import { qr } from './slash/util/qr.js';
 import { screenshot } from './slash/util/screenshot.js';
 import { download } from './slash/util/download.js';
+import { inspect } from './slash/util/inspect.js';
 
 // Music
 import { join } from './slash/music/join.js';
@@ -237,6 +238,15 @@ export const COMMANDS: CommandDefinition[] = [
     handler: download,
     category: 'utility',
     summary: 'Download a video or its audio from a link',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('inspect')
+      .setDescription('Inspect a site: colours, fonts, images, icons and tech stack')
+      .addStringOption((o) => o.setName('url').setDescription('Page to inspect').setRequired(true)),
+    handler: inspect,
+    category: 'utility',
+    summary: 'Inspect a site: colours, fonts, images, icons and tech stack',
   },
 
   // ------------------------------------------------------------------ Music
