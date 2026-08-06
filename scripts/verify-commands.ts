@@ -74,14 +74,34 @@ async function compareWithDiscord(): Promise<number> {
 
   console.log('\nComparing against Discord...');
   const rest = new REST({ version: '10' }).setToken(token);
-  const remote = (await rest.get(Routes.applicationCommands(appId))) as Array<{
+
+  // Registration is guild-scoped, so the global list must stay empty:
+  // anything left there shows up as a duplicate alongside the guild copy.
+  const globals = (await rest.get(Routes.applicationCommands(appId))) as unknown[];
+  if (globals.length > 0) {
+    console.error(
+      `  DUPLICATE  ${globals.length} global commands still registered; each appears twice.`,
+    );
+    console.error('             Run register:commands to clear them.');
+  }
+
+  const guilds = (await rest.get(Routes.userGuilds())) as Array<{ id: string; name: string }>;
+  if (guilds.length === 0) {
+    console.log('  Bot is not in any guild.');
+    return globals.length > 0 ? 1 : 0;
+  }
+
+  const primary = guilds[0]!;
+  console.log(`  Checking against ${primary.name}`);
+
+  const remote = (await rest.get(Routes.applicationGuildCommands(appId, primary.id))) as Array<{
     name: string;
     options?: OptionJson[];
   }>;
 
   const localNames = new Set(COMMANDS.map((c) => c.handler.data.name));
   const remoteNames = new Set(remote.map((c) => c.name));
-  let failures = 0;
+  let failures = globals.length > 0 ? 1 : 0;
 
   for (const name of remoteNames) {
     if (!localNames.has(name)) {

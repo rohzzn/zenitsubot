@@ -4,7 +4,8 @@ import {
   AttachmentBuilder,
   ActionRowBuilder,
   StringSelectMenuBuilder,
-  ComponentType,
+  ButtonBuilder,
+  ButtonStyle,
 } from 'discord.js';
 import { Jimp } from 'jimp';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
@@ -13,7 +14,6 @@ import { logger } from '../../../services/logger.js';
 
 const MENU_ID = 'inspect_page';
 const MENU_TIMEOUT_MS = 5 * 60 * 1000;
-const IMAGES_PER_PAGE = 10;
 
 type Page = 'overview' | 'colors' | 'fonts' | 'images' | 'tech';
 
@@ -52,6 +52,21 @@ function hexToInt(hex: string): number | null {
   return m ? parseInt(m[1]!, 16) : null;
 }
 
+/**
+ * Picks a favicon Discord will actually render.
+ *
+ * Embeds do not display .ico or .svg, which is what most sites list first, so
+ * a raster icon is preferred and Google's favicon service is the fallback —
+ * it always returns a PNG for any domain.
+ */
+function displayableIcon(report: SiteReport): string {
+  const raster = report.favicons.find((f) => /\.(png|jpe?g|webp)(\?|$)/i.test(f));
+  if (raster) return raster;
+
+  const host = new URL(report.finalUrl).hostname;
+  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
+}
+
 /** Renders the palette as a strip of labelled swatches. */
 async function paletteImage(report: SiteReport): Promise<Buffer | null> {
   const colors = report.colors.slice(0, 10);
@@ -87,9 +102,11 @@ function overviewEmbed(report: SiteReport): EmbedBuilder {
 
   if (report.description) embed.setDescription(report.description.slice(0, 500));
 
-  // Favicon front and centre, as asked.
-  const icon = report.favicons[0];
-  if (icon) embed.setThumbnail(icon);
+  // Favicon front and centre, and repeated on the author line so it reads as
+  // the site's own identity rather than a generic embed.
+  const icon = displayableIcon(report);
+  embed.setThumbnail(icon);
+  embed.setAuthor({ name: new URL(report.finalUrl).hostname, iconURL: icon, url: report.finalUrl });
 
   const server = report.headers['server'];
   const poweredBy = report.headers['x-powered-by'];
@@ -132,9 +149,18 @@ function overviewEmbed(report: SiteReport): EmbedBuilder {
   return embed;
 }
 
+function siteAuthor(report: SiteReport) {
+  return {
+    name: new URL(report.finalUrl).hostname,
+    iconURL: displayableIcon(report),
+    url: report.finalUrl,
+  };
+}
+
 function colorsEmbed(report: SiteReport): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setColor(hexToInt(report.colors[0]?.hex ?? '') ?? ZENITSU_THEME.PRIMARY)
+    .setAuthor(siteAuthor(report))
     .setTitle('Colours')
     .setFooter({ text: 'Variables come from CSS custom properties; the rest are computed styles' });
 
@@ -175,7 +201,10 @@ function colorsEmbed(report: SiteReport): EmbedBuilder {
 }
 
 function fontsEmbed(report: SiteReport): EmbedBuilder {
-  const embed = new EmbedBuilder().setColor(ZENITSU_THEME.PRIMARY).setTitle('Fonts');
+  const embed = new EmbedBuilder()
+    .setColor(hexToInt(report.colors[0]?.hex ?? '') ?? ZENITSU_THEME.PRIMARY)
+    .setAuthor(siteAuthor(report))
+    .setTitle('Fonts');
 
   if (report.fonts.length === 0) {
     embed.setDescription('No fonts could be read from this page.');
@@ -215,50 +244,75 @@ function fontsEmbed(report: SiteReport): EmbedBuilder {
   return embed;
 }
 
-function imagesEmbed(report: SiteReport, page: number): EmbedBuilder {
+/**
+ * One image per page, shown full size.
+ *
+ * A list of links is not much use for looking at assets, which is the whole
+ * point of this section, so each image gets the embed to itself and the
+ * buttons step through them.
+ */
+function imagesEmbed(report: SiteReport, index: number): EmbedBuilder {
   const total = report.images.length;
-  const pages = Math.max(1, Math.ceil(total / IMAGES_PER_PAGE));
-  const clamped = Math.min(Math.max(page, 0), pages - 1);
-  const slice = report.images.slice(clamped * IMAGES_PER_PAGE, (clamped + 1) * IMAGES_PER_PAGE);
 
   const embed = new EmbedBuilder()
-    .setColor(ZENITSU_THEME.PRIMARY)
-    .setTitle(`Images (${total})`)
-    .setFooter({ text: `Page ${clamped + 1} of ${pages}` });
+    .setColor(hexToInt(report.colors[0]?.hex ?? '') ?? ZENITSU_THEME.PRIMARY)
+    .setAuthor(siteAuthor(report));
 
   if (total === 0) {
-    embed.setDescription('No images found on this page.');
-    return embed;
+    return embed.setTitle('Images').setDescription('No images found on this page.');
   }
 
-  // Preview the largest image rather than whatever happens to be first.
-  const preview =
-    report.images.find((i) => i.kind === 'social') ??
-    [...report.images].sort(
-      (a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0),
-    )[0];
-  if (preview) embed.setImage(preview.url);
+  const clamped = Math.min(Math.max(index, 0), total - 1);
+  const image = report.images[clamped]!;
+  const name = decodeURIComponent(image.url.split('/').pop() ?? '')
+    .split('?')[0]!
+    .slice(0, 60);
 
-  embed.setDescription(
-    slice
-      .map((img, i) => {
-        const n = clamped * IMAGES_PER_PAGE + i + 1;
-        const dims = img.width && img.height ? ` \`${img.width}x${img.height}\`` : '';
-        const name = decodeURIComponent(img.url.split('/').pop() ?? '')
-          .split('?')[0]!
-          .slice(0, 40);
-        return `**${n}.** [${name || 'image'}](${img.url})${dims} · ${img.kind}`;
-      })
-      .join('\n')
-      .slice(0, 4000),
-  );
+  const facts = [
+    image.width && image.height ? `${image.width} x ${image.height}` : null,
+    image.kind,
+    (image.url.match(/\.(png|jpe?g|webp|gif|svg|avif)(\?|$)/i)?.[1] ?? '').toUpperCase() || null,
+  ].filter(Boolean);
+
+  embed
+    .setTitle(`Image ${clamped + 1} of ${total}`)
+    .setURL(image.url)
+    .setDescription(`**${name || 'untitled'}**\n${facts.join('  ·  ')}`)
+    .setImage(image.url)
+    .setFooter({ text: image.alt ? `alt: ${image.alt.slice(0, 200)}` : 'no alt text' });
 
   return embed;
 }
 
+function imageButtons(index: number, total: number): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('inspect_img_first')
+      .setLabel('First')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(index <= 0),
+    new ButtonBuilder()
+      .setCustomId('inspect_img_prev')
+      .setLabel('Previous')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(index <= 0),
+    new ButtonBuilder()
+      .setCustomId('inspect_img_next')
+      .setLabel('Next')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(index >= total - 1),
+    new ButtonBuilder()
+      .setCustomId('inspect_img_last')
+      .setLabel('Last')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(index >= total - 1),
+  );
+}
+
 function techEmbed(report: SiteReport): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setColor(ZENITSU_THEME.PRIMARY)
+    .setColor(hexToInt(report.colors[0]?.hex ?? '') ?? ZENITSU_THEME.PRIMARY)
+    .setAuthor(siteAuthor(report))
     .setTitle('Tech stack')
     .setFooter({ text: 'Signature based; absence is not proof a technology is unused' });
 
@@ -374,7 +428,11 @@ export const inspect = {
           return {
             embeds: [imagesEmbed(report, imagePage)],
             files: [],
-            components: [pageMenu(page, report)],
+            // Pager sits above the section menu so stepping through images is
+            // the obvious action once you are on this page.
+            components: report.images.length
+              ? [imageButtons(imagePage, report.images.length), pageMenu(page, report)]
+              : [pageMenu(page, report)],
           };
         case 'tech':
           return { embeds: [techEmbed(report)], files: [], components: [pageMenu(page, report)] };
@@ -389,18 +447,49 @@ export const inspect = {
 
     const message = await interaction.editReply(render('overview'));
 
-    const collector = message.createMessageComponentCollector({
-      componentType: ComponentType.StringSelect,
-      time: MENU_TIMEOUT_MS,
-    });
+    // No componentType filter: this collects both the section menu and the
+    // image pager buttons.
+    const collector = message.createMessageComponentCollector({ time: MENU_TIMEOUT_MS });
 
-    collector.on('collect', async (select) => {
-      if (select.user.id !== interaction.user.id) {
-        await select.reply({ content: 'Run your own `/inspect` to browse this.', ephemeral: true });
+    collector.on('collect', async (component) => {
+      if (component.user.id !== interaction.user.id) {
+        await component.reply({
+          content: 'Run your own `/inspect` to browse this.',
+          ephemeral: true,
+        });
         return;
       }
 
-      await select.update(render(select.values[0] as Page));
+      if (component.isStringSelectMenu()) {
+        const page = component.values[0] as Page;
+        // Start from the top each time the images page is opened.
+        if (page === 'images') imagePage = 0;
+        await component.update(render(page));
+        return;
+      }
+
+      if (component.isButton()) {
+        const last = report.images.length - 1;
+
+        switch (component.customId) {
+          case 'inspect_img_first':
+            imagePage = 0;
+            break;
+          case 'inspect_img_prev':
+            imagePage = Math.max(0, imagePage - 1);
+            break;
+          case 'inspect_img_next':
+            imagePage = Math.min(last, imagePage + 1);
+            break;
+          case 'inspect_img_last':
+            imagePage = last;
+            break;
+          default:
+            return;
+        }
+
+        await component.update(render('images'));
+      }
     });
 
     collector.on('end', () => {
