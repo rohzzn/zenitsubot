@@ -6,7 +6,7 @@ import {
   ComponentType,
   type Message,
 } from 'discord.js';
-import { brandEmbed, pagerRow, count } from '../../../utils/ui.js';
+import { brandEmbed, pagerRow, count, text } from '../../../utils/ui.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import {
   searchArchive,
@@ -24,22 +24,22 @@ const GET_MAGNET_ID = 'torrent_magnet';
 function resultEmbed(result: TorrentResult, index: number, total: number) {
   const embed = brandEmbed({
     author: { name: `Internet Archive - ${index + 1} of ${total}` },
-    title: result.title,
+    title: text(result.title, result.identifier),
     url: result.pageUrl,
     footer: 'Public domain and openly licensed material',
   });
 
   embed.addFields(
-    { name: 'Type', value: result.mediatype ?? 'unknown', inline: true },
-    { name: 'Size', value: formatBytes(result.size), inline: true },
-    { name: 'Downloads', value: count(result.downloads), inline: true },
+    { name: 'Type', value: text(result.mediatype, 'unknown'), inline: true },
+    { name: 'Size', value: text(formatBytes(result.size)), inline: true },
+    { name: 'Downloads', value: text(count(result.downloads)), inline: true },
   );
 
   if (result.creator) {
-    embed.addFields({ name: 'Creator', value: result.creator.slice(0, 200), inline: true });
+    embed.addFields({ name: 'Creator', value: text(result.creator).slice(0, 200), inline: true });
   }
   if (result.year) {
-    embed.addFields({ name: 'Year', value: result.year, inline: true });
+    embed.addFields({ name: 'Year', value: text(result.year), inline: true });
   }
 
   embed.addFields({ name: 'Identifier', value: `\`${result.identifier}\``, inline: false });

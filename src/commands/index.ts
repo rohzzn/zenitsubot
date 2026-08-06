@@ -18,6 +18,7 @@ import { download } from './slash/util/download.js';
 import { inspect } from './slash/util/inspect.js';
 import { serverlookup } from './slash/util/serverlookup.js';
 import { torrent, magnet } from './slash/util/torrent.js';
+import { qbit } from './slash/util/qbit.js';
 
 // Music
 import { join } from './slash/music/join.js';
@@ -280,6 +281,71 @@ export const COMMANDS: CommandDefinition[] = [
     handler: magnet,
     category: 'utility',
     summary: 'Decode a magnet link into its infohash, size and trackers',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('qbit')
+      .setDescription('Control your qBittorrent instance')
+      .addSubcommand((sub) => sub.setName('status').setDescription('Speeds and totals'))
+      .addSubcommand((sub) =>
+        sub
+          .setName('list')
+          .setDescription('List torrents')
+          .addStringOption((o) =>
+            o
+              .setName('filter')
+              .setDescription('Which torrents to show')
+              .addChoices(
+                { name: 'All', value: 'all' },
+                { name: 'Downloading', value: 'downloading' },
+                { name: 'Seeding', value: 'seeding' },
+                { name: 'Completed', value: 'completed' },
+                { name: 'Paused', value: 'paused' },
+              ),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('add')
+          .setDescription('Add a magnet link')
+          .addStringOption((o) =>
+            o.setName('magnet').setDescription('Magnet URI').setRequired(true),
+          )
+          .addStringOption((o) =>
+            o.setName('category').setDescription('Category to file it under'),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('pause')
+          .setDescription('Pause a torrent')
+          .addStringOption((o) =>
+            o.setName('torrent').setDescription('Hash prefix or name').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('resume')
+          .setDescription('Resume a torrent')
+          .addStringOption((o) =>
+            o.setName('torrent').setDescription('Hash prefix or name').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('remove')
+          .setDescription('Remove a torrent')
+          .addStringOption((o) =>
+            o.setName('torrent').setDescription('Hash prefix or name').setRequired(true),
+          )
+          .addBooleanOption((o) =>
+            o.setName('delete_files').setDescription('Also delete the downloaded files'),
+          ),
+      ),
+    handler: qbit,
+    category: 'utility',
+    summary: 'Control your qBittorrent instance',
+    hidden: true,
   },
 
   // ------------------------------------------------------------------ Music

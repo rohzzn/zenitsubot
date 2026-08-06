@@ -29,7 +29,8 @@ export interface TorrentResult {
   title: string;
   mediatype?: string;
   creator?: string;
-  year?: string;
+  /** Internet Archive returns this as a number, not a string. */
+  year?: string | number;
   downloads?: number;
   size?: number;
   pageUrl: string;
@@ -257,7 +258,7 @@ interface IaDoc {
   title?: string | string[];
   mediatype?: string;
   creator?: string | string[];
-  year?: string;
+  year?: string | number;
   downloads?: number;
   item_size?: number;
 }

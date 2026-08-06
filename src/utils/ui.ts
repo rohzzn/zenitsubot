@@ -189,6 +189,23 @@ export function count(value?: number | null): string {
   return typeof value === 'number' ? value.toLocaleString() : '-';
 }
 
+/**
+ * Coerces anything into a usable embed field value.
+ *
+ * Discord rejects a field whose value is empty or not a string, and the error
+ * surfaces as an opaque validation failure for the whole embed. APIs are
+ * casual about this: the Internet Archive returns `year` as a number, and
+ * plenty of fields come back as empty strings that `??` will not catch.
+ */
+export function text(value: unknown, fallback = '-'): string {
+  if (value === null || value === undefined) return fallback;
+
+  const asString = Array.isArray(value) ? value.join(', ') : String(value);
+  const trimmed = asString.trim();
+
+  return trimmed.length > 0 ? trimmed.slice(0, 1024) : fallback;
+}
+
 /** Discord relative timestamp from anything date-like. */
 export function since(value: string | number | Date): string {
   return `<t:${Math.floor(new Date(value).getTime() / 1000)}:R>`;
