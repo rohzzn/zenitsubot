@@ -17,6 +17,7 @@ import { screenshot } from './slash/util/screenshot.js';
 import { download } from './slash/util/download.js';
 import { inspect } from './slash/util/inspect.js';
 import { serverlookup } from './slash/util/serverlookup.js';
+import { torrent, magnet } from './slash/util/torrent.js';
 
 // Music
 import { join } from './slash/music/join.js';
@@ -259,6 +260,26 @@ export const COMMANDS: CommandDefinition[] = [
     handler: serverlookup,
     category: 'utility',
     summary: 'Look up a Discord server by ID or invite',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('torrent')
+      .setDescription('Search the Internet Archive and get a magnet link')
+      .addStringOption((o) =>
+        o.setName('query').setDescription('What to look for').setRequired(true),
+      ),
+    handler: torrent,
+    category: 'utility',
+    summary: 'Search the Internet Archive and get a magnet link',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('magnet')
+      .setDescription('Decode a magnet link')
+      .addStringOption((o) => o.setName('link').setDescription('The magnet URI').setRequired(true)),
+    handler: magnet,
+    category: 'utility',
+    summary: 'Decode a magnet link into its infohash, size and trackers',
   },
 
   // ------------------------------------------------------------------ Music
