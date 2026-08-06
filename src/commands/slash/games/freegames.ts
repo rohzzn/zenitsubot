@@ -1,5 +1,5 @@
-import { EmbedBuilder, type Client, type ChatInputCommandInteraction } from 'discord.js';
-import { ZENITSU_THEME, EMOTES } from '../../../utils/constants.js';
+import type { Client, ChatInputCommandInteraction } from 'discord.js';
+import { brandEmbed, sendPaged } from '../../../utils/ui.js';
 import { logger } from '../../../services/logger.js';
 
 const EPIC_PROMOTIONS_URL =
@@ -23,33 +23,35 @@ export const freegames = {
 
       const games = await fetchEpicFreeGames();
 
-      const embed = new EmbedBuilder()
-        .setColor(ZENITSU_THEME.PRIMARY)
-        .setTitle(`Epic Games — Free This Week`)
-        .setFooter({ text: 'Epic rotates free games every Thursday at 11am ET' })
-        .setTimestamp();
-
       if (games.length === 0) {
-        embed.setDescription(`No free games on Epic right now. Check back Thursday!`);
-        await interaction.editReply({ embeds: [embed] });
+        await interaction.editReply({
+          embeds: [
+            brandEmbed({
+              author: { name: 'Epic Games' },
+              title: 'Nothing free right now',
+              description: 'Epic rotates its free games every Thursday at 11am ET.',
+            }),
+          ],
+        });
         return;
       }
 
-      embed.setDescription(
-        `**${games.length} game${games.length > 1 ? 's' : ''} free to claim right now.**\n​`,
+      // A card each, so every game gets its own key art rather than one
+      // shared banner for the whole list.
+      const pages = games.map((game, index) =>
+        brandEmbed({
+          author: { name: `Epic Games - free this week (${index + 1}/${games.length})` },
+          title: game.title,
+          url: game.url,
+          description: game.description ? truncate(game.description, 300) : undefined,
+          image: game.image,
+          footer: game.endsAt
+            ? `Free until ${game.endsAt.toUTCString().slice(0, 16)}`
+            : 'Claim it while it lasts',
+        }).addFields({ name: 'Claim', value: `[Open on Epic Games](${game.url})`, inline: false }),
       );
 
-      for (const game of games) {
-        const parts = [`[Claim it on Epic Games](${game.url})`];
-        if (game.description) parts.push(truncate(game.description, 140));
-        if (game.endsAt) parts.push(`Free until <t:${Math.floor(game.endsAt.getTime() / 1000)}:D>`);
-
-        embed.addFields([{ name: game.title, value: `${parts.join('\n')}\n​`, inline: false }]);
-      }
-
-      if (games[0]?.image) embed.setImage(games[0].image);
-
-      await interaction.editReply({ embeds: [embed] });
+      await sendPaged(interaction, pages);
     } catch (err) {
       logger.error({ err }, 'Free games fetch error');
       await interaction

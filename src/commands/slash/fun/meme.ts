@@ -1,6 +1,6 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
-import { EmbedBuilder } from 'discord.js';
-import { ZENITSU_THEME } from '../../../utils/constants.js';
+
+import { brandEmbed, sendPaged } from '../../../utils/ui.js';
 import { logger } from '../../../services/logger.js';
 
 // Reddit's public .json endpoints now block non-OAuth clients, so we go through
@@ -33,38 +33,45 @@ export const meme = {
   async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     await interaction.deferReply();
 
+    // A batch up front, so Next is instant instead of another round trip.
+    const seen = new Set<string>();
+    const memes: MemeResponse[] = [];
+
     try {
-      const subreddit = SUBREDDITS[Math.floor(Math.random() * SUBREDDITS.length)]!;
-      const response = await fetch(`${API_BASE}/${subreddit}`);
+      for (let attempt = 0; attempt < 6 && memes.length < 5; attempt++) {
+        const subreddit = SUBREDDITS[Math.floor(Math.random() * SUBREDDITS.length)]!;
+        const response = await fetch(`${API_BASE}/${subreddit}`, {
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (!response.ok) continue;
 
-      if (!response.ok) {
-        await interaction.editReply('Could not reach the meme service. Try again!');
+        const post = (await response.json()) as MemeResponse;
+        if (!post.url || post.nsfw || post.spoiler || seen.has(post.url)) continue;
+
+        seen.add(post.url);
+        memes.push(post);
+      }
+
+      if (memes.length === 0) {
+        await interaction.editReply('Could not find a meme right now. Try again.');
         return;
       }
 
-      const post = (await response.json()) as MemeResponse;
+      const pages = memes.map((post, index) => {
+        const title = post.title ?? 'Untitled';
+        return brandEmbed({
+          author: { name: `r/${post.subreddit ?? 'memes'}` },
+          title: title.length > 250 ? `${title.slice(0, 247)}...` : title,
+          url: post.postLink,
+          image: post.url,
+          footer: `${(post.ups ?? 0).toLocaleString()} upvotes  ·  ${index + 1} of ${memes.length}`,
+        });
+      });
 
-      if (!post.url || post.nsfw || post.spoiler) {
-        await interaction.editReply('No suitable meme found. Try again!');
-        return;
-      }
-
-      const title = post.title ?? 'Untitled';
-      const embed = new EmbedBuilder()
-        .setColor(ZENITSU_THEME.PRIMARY)
-        .setTitle(title.length > 256 ? `${title.slice(0, 253)}...` : title)
-        .setImage(post.url)
-        .setFooter({
-          text: `r/${post.subreddit ?? subreddit} • ${(post.ups ?? 0).toLocaleString()}`,
-        })
-        .setTimestamp();
-
-      if (post.postLink) embed.setURL(post.postLink);
-
-      await interaction.editReply({ embeds: [embed] });
+      await sendPaged(interaction, pages);
     } catch (err) {
       logger.error({ err }, 'Meme fetch error');
-      await interaction.editReply('Failed to fetch meme. Try again!').catch(() => {});
+      await interaction.editReply('Failed to fetch meme. Try again.').catch(() => {});
     }
   },
 };

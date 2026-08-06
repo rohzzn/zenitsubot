@@ -1,119 +1,154 @@
-import { EmbedBuilder, type Client, type ChatInputCommandInteraction } from 'discord.js';
-import { ZENITSU_THEME } from '../../../utils/constants.js';
+import type { Client, ChatInputCommandInteraction } from 'discord.js';
+import { brandEmbed, sendPaged } from '../../../utils/ui.js';
 import { logger } from '../../../services/logger.js';
+
+const STEAM_BLUE = 0x1b2838;
+const MAX_RESULTS = 6;
+
+interface StoreSearchItem {
+  id: number;
+  name: string;
+  tiny_image?: string;
+}
+
+interface AppDetails {
+  name: string;
+  short_description?: string;
+  header_image?: string;
+  is_free?: boolean;
+  price_overview?: { final_formatted?: string; discount_percent?: number };
+  release_date?: { date?: string; coming_soon?: boolean };
+  developers?: string[];
+  publishers?: string[];
+  genres?: Array<{ description: string }>;
+  metacritic?: { score: number };
+  platforms?: { windows?: boolean; mac?: boolean; linux?: boolean };
+  screenshots?: Array<{ path_full?: string }>;
+  categories?: Array<{ description: string }>;
+}
+
+async function fetchJson<T>(url: string): Promise<T | null> {
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
 
 export const steamsearch = {
   data: { name: 'steamsearch' },
-  async execute(client: Client, interaction: ChatInputCommandInteraction) {
-    const subcommand = interaction.options.getSubcommand();
+  category: 'gaming',
 
-    if (subcommand === 'game') {
-      const query = interaction.options.getString('query', true);
-      await searchSteamGame(interaction, query);
-    } else if (subcommand === 'player') {
-      const steamId = interaction.options.getString('steamid', true);
-      await searchSteamPlayer(interaction, steamId);
+  async execute(_client: Client, interaction: ChatInputCommandInteraction) {
+    const query = interaction.options.getString('query', true).trim();
+    await interaction.deferReply();
+
+    try {
+      const search = await fetchJson<{ items?: StoreSearchItem[] }>(
+        `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&cc=us&l=english`,
+      );
+
+      const items = (search?.items ?? []).slice(0, MAX_RESULTS);
+      if (items.length === 0) {
+        await interaction.editReply(`No games found for **${query}**.`);
+        return;
+      }
+
+      // Details are a request each, so they run together rather than in series.
+      const detailed = await Promise.all(
+        items.map(async (item) => {
+          const data = await fetchJson<Record<string, { data?: AppDetails }>>(
+            `https://store.steampowered.com/api/appdetails?appids=${item.id}`,
+          );
+          return { item, details: data?.[item.id]?.data };
+        }),
+      );
+
+      const pages = detailed.map(({ item, details }, index) => {
+        const url = `https://store.steampowered.com/app/${item.id}`;
+        const position = `${index + 1}/${detailed.length}`;
+
+        if (!details) {
+          return brandEmbed({
+            color: STEAM_BLUE,
+            author: { name: `Steam - ${position}` },
+            title: item.name,
+            url,
+            description: 'Steam returned no details for this title.',
+            image: item.tiny_image,
+          });
+        }
+
+        const price = details.is_free
+          ? 'Free to play'
+          : (details.price_overview?.final_formatted ?? 'Not priced');
+        const discount = details.price_overview?.discount_percent;
+
+        const platforms = [
+          details.platforms?.windows ? 'Windows' : null,
+          details.platforms?.mac ? 'macOS' : null,
+          details.platforms?.linux ? 'Linux' : null,
+        ].filter(Boolean);
+
+        const embed = brandEmbed({
+          color: STEAM_BLUE,
+          author: { name: `Steam - ${position}` },
+          title: details.name,
+          url,
+          description: details.short_description?.slice(0, 400),
+          // Header art first; a screenshot is a decent fallback.
+          image: details.header_image ?? details.screenshots?.[0]?.path_full,
+          footer: `App ID ${item.id}`,
+        });
+
+        embed.addFields(
+          {
+            name: 'Price',
+            value: discount ? `${price}  (-${discount}%)` : price,
+            inline: true,
+          },
+          {
+            name: 'Released',
+            value: details.release_date?.coming_soon
+              ? (details.release_date.date ?? 'Coming soon')
+              : (details.release_date?.date ?? 'Unknown'),
+            inline: true,
+          },
+          {
+            name: 'Metacritic',
+            value: details.metacritic ? `${details.metacritic.score}/100` : '-',
+            inline: true,
+          },
+          {
+            name: 'Developer',
+            value: (details.developers ?? []).join(', ').slice(0, 200) || 'Unknown',
+            inline: true,
+          },
+          {
+            name: 'Platforms',
+            value: platforms.join(', ') || 'Unknown',
+            inline: true,
+          },
+          {
+            name: 'Genres',
+            value:
+              (details.genres ?? [])
+                .map((g) => g.description)
+                .join(', ')
+                .slice(0, 200) || '-',
+            inline: true,
+          },
+        );
+
+        return embed;
+      });
+
+      await sendPaged(interaction, pages);
+    } catch (err) {
+      logger.error({ err, query }, 'Steam search failed');
+      await interaction.editReply('Steam search failed. Try again later.').catch(() => {});
     }
   },
 };
-
-async function searchSteamGame(interaction: ChatInputCommandInteraction, query: string) {
-  try {
-    await interaction.deferReply();
-
-    // Steam Store API search
-    const searchUrl = `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&cc=us&l=english`;
-    const response = await fetch(searchUrl);
-    const data = (await response.json()) as any;
-
-    if (!data.items || data.items.length === 0) {
-      await interaction.editReply('No games found for that query.');
-      return;
-    }
-
-    const game = data.items[0];
-    const appId = game.id;
-
-    // Get detailed info from Steam API
-    const detailsUrl = `https://store.steampowered.com/api/appdetails?appids=${appId}`;
-    const detailsResponse = await fetch(detailsUrl);
-    const detailsData = (await detailsResponse.json()) as any;
-
-    const gameData = detailsData[appId]?.data;
-    if (!gameData) {
-      await interaction.editReply('Failed to fetch game details.');
-      return;
-    }
-
-    const embed = new EmbedBuilder()
-      .setColor(ZENITSU_THEME.PRIMARY)
-      .setTitle(gameData.name)
-      .setDescription(gameData.short_description?.slice(0, 300) || 'No description available.')
-      .setURL(`https://store.steampowered.com/app/${appId}`)
-      .addFields([
-        {
-          name: 'Price',
-          value: gameData.is_free ? 'Free' : gameData.price_overview?.final_formatted || 'N/A',
-          inline: true,
-        },
-        { name: 'Release Date', value: gameData.release_date?.date || 'TBA', inline: true },
-        { name: 'Developer', value: gameData.developers?.join(', ') || 'Unknown', inline: true },
-        {
-          name: 'Genres',
-          value: gameData.genres?.map((g: any) => g.description).join(', ') || 'N/A',
-          inline: false,
-        },
-      ])
-      .setImage(gameData.header_image)
-      .setFooter({ text: `Steam App ID: ${appId}` });
-
-    if (gameData.metacritic) {
-      embed.addFields([
-        { name: 'Metacritic Score', value: `${gameData.metacritic.score}/100`, inline: true },
-      ]);
-    }
-
-    await interaction.editReply({ embeds: [embed] });
-  } catch (err: any) {
-    logger.error({ err, query }, 'Steam game search error');
-    await interaction.editReply('Failed to search Steam. Please try again later.').catch(() => {});
-  }
-}
-
-async function searchSteamPlayer(interaction: ChatInputCommandInteraction, steamId: string) {
-  try {
-    await interaction.deferReply();
-
-    // Extract Steam ID from URL if needed
-    let extractedId = steamId;
-    const urlMatch = steamId.match(/steamcommunity\.com\/(id|profiles)\/([^\/]+)/);
-    if (urlMatch) {
-      extractedId = urlMatch[2] || steamId;
-    }
-
-    // Note: Steam Web API requires API key for player summaries
-    // For public data without key, we'll show basic info
-    const profileUrl = steamId.includes('steamcommunity.com')
-      ? steamId
-      : `https://steamcommunity.com/id/${extractedId}`;
-
-    const embed = new EmbedBuilder()
-      .setColor(ZENITSU_THEME.PRIMARY)
-      .setTitle('Steam Player Profile')
-      .setDescription(`[View Full Profile](${profileUrl})`)
-      .addFields([
-        { name: 'Steam ID/URL', value: extractedId, inline: false },
-        {
-          name: 'Note',
-          value: 'Full player stats require Steam API key. Visit the profile link for details.',
-          inline: false,
-        },
-      ])
-      .setFooter({ text: 'Steam Player Lookup' });
-
-    await interaction.editReply({ embeds: [embed] });
-  } catch (err: any) {
-    logger.error({ err, steamId }, 'Steam player search error');
-    await interaction.editReply('Failed to search for player.').catch(() => {});
-  }
-}

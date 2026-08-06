@@ -16,6 +16,7 @@ import { qr } from './slash/util/qr.js';
 import { screenshot } from './slash/util/screenshot.js';
 import { download } from './slash/util/download.js';
 import { inspect } from './slash/util/inspect.js';
+import { serverlookup } from './slash/util/serverlookup.js';
 
 // Music
 import { join } from './slash/music/join.js';
@@ -247,6 +248,17 @@ export const COMMANDS: CommandDefinition[] = [
     handler: inspect,
     category: 'utility',
     summary: 'Inspect a site: colours, fonts, images, icons and tech stack',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('serverlookup')
+      .setDescription('Look up a Discord server by ID or invite')
+      .addStringOption((o) =>
+        o.setName('server').setDescription('Server ID or invite link').setRequired(true),
+      ),
+    handler: serverlookup,
+    category: 'utility',
+    summary: 'Look up a Discord server by ID or invite',
   },
 
   // ------------------------------------------------------------------ Music
@@ -627,23 +639,10 @@ export const COMMANDS: CommandDefinition[] = [
     builder: new SlashCommandBuilder()
       .setName('steamsearch')
       .setDescription('Search the Steam store')
-      .addSubcommand((sub) =>
-        sub
-          .setName('game')
-          .setDescription('Search for a Steam game')
-          .addStringOption((o) => o.setName('query').setDescription('Game name').setRequired(true)),
-      )
-      .addSubcommand((sub) =>
-        sub
-          .setName('player')
-          .setDescription('Look up a Steam player')
-          .addStringOption((o) =>
-            o.setName('steamid').setDescription('Steam ID or profile URL').setRequired(true),
-          ),
-      ),
+      .addStringOption((o) => o.setName('query').setDescription('Game name').setRequired(true)),
     handler: steamsearch,
     category: 'gaming',
-    summary: 'Search Steam games and players',
+    summary: 'Search the Steam store',
   },
   {
     builder: new SlashCommandBuilder()
