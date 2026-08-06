@@ -300,7 +300,7 @@ export const COMMANDS: CommandDefinition[] = [
                 { name: 'Downloading', value: 'downloading' },
                 { name: 'Seeding', value: 'seeding' },
                 { name: 'Completed', value: 'completed' },
-                { name: 'Paused', value: 'paused' },
+                { name: 'Stopped', value: 'stopped' },
               ),
           ),
       )

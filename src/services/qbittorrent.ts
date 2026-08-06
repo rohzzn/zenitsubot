@@ -82,13 +82,20 @@ async function login(): Promise<string> {
   if (response.status === 403) {
     throw new QbitError('qBittorrent refused the login. Too many failed attempts, or IP banned.');
   }
-  if (text !== 'Ok.') {
+
+  // Success is version-dependent: older builds answer 200 with the body "Ok.",
+  // 5.x answers 204 with no body at all. Failure is 200 with "Fails.".
+  const ok = response.status === 204 || text === 'Ok.';
+  if (!ok) {
     throw new QbitError('qBittorrent rejected the credentials. Check QBIT_USER and QBIT_PASS.');
   }
 
-  const cookie = response.headers.getSetCookie?.().find((c) => c.startsWith('SID='));
+  // The session cookie is named SID on older builds and QBT_SID_<port> on
+  // newer ones, so match on the shape rather than an exact name.
+  const cookie = response.headers.getSetCookie?.().find((c) => /^(QBT_)?SID(_\d+)?=/.test(c));
+
   if (!cookie) {
-    // Some builds with auth bypassed for local subnets return Ok. and no cookie.
+    // Instances with auth bypassed for local subnets authenticate with no cookie.
     session = { cookie: '', at: Date.now() };
     return '';
   }
@@ -147,20 +154,28 @@ export async function addMagnet(magnet: string, category?: string): Promise<void
   await call('/torrents/add', { method: 'POST', body, raw: true });
 }
 
+/**
+ * qBittorrent 5.0 renamed these endpoints: pause became stop, resume became
+ * start, and the old paths now 404. Trying the modern name first and falling
+ * back keeps both generations working.
+ */
+async function actOnTorrent(hash: string, modern: string, legacy: string): Promise<void> {
+  const body = () => new URLSearchParams({ hashes: hash });
+
+  try {
+    await call(`/torrents/${modern}`, { method: 'POST', body: body(), raw: true });
+  } catch (err) {
+    if (!(err instanceof QbitError) || !err.message.includes('404')) throw err;
+    await call(`/torrents/${legacy}`, { method: 'POST', body: body(), raw: true });
+  }
+}
+
 export async function pauseTorrent(hash: string): Promise<void> {
-  await call('/torrents/pause', {
-    method: 'POST',
-    body: new URLSearchParams({ hashes: hash }),
-    raw: true,
-  });
+  await actOnTorrent(hash, 'stop', 'pause');
 }
 
 export async function resumeTorrent(hash: string): Promise<void> {
-  await call('/torrents/resume', {
-    method: 'POST',
-    body: new URLSearchParams({ hashes: hash }),
-    raw: true,
-  });
+  await actOnTorrent(hash, 'start', 'resume');
 }
 
 export async function deleteTorrent(hash: string, deleteFiles: boolean): Promise<void> {
@@ -204,15 +219,25 @@ const STATE_LABELS: Record<string, string> = {
   stalledDL: 'Stalled (down)',
   stalledUP: 'Seeding (stalled)',
   uploading: 'Seeding',
+  // 5.x renamed the paused states to stopped; both are listed so either
+  // generation of the API renders a readable label.
+  stoppedDL: 'Stopped',
+  stoppedUP: 'Stopped (done)',
   pausedDL: 'Paused',
   pausedUP: 'Paused (done)',
   queuedDL: 'Queued',
   queuedUP: 'Queued (seed)',
   checkingDL: 'Checking',
   checkingUP: 'Checking',
+  checkingResumeData: 'Checking resume data',
+  forcedDL: 'Downloading (forced)',
+  forcedUP: 'Seeding (forced)',
+  moving: 'Moving',
   metaDL: 'Fetching metadata',
+  forcedMetaDL: 'Fetching metadata',
   error: 'Error',
   missingFiles: 'Missing files',
+  unknown: 'Unknown',
 };
 
 export function stateLabel(state: string): string {
