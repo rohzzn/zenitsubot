@@ -15,6 +15,8 @@ services:
         condition: service_healthy
       searxng:
         condition: service_started
+      browserless:
+        condition: service_started
     restart: unless-stopped
     volumes:
       - ./prisma:/app/prisma
@@ -71,6 +73,24 @@ services:
       - CHOWN
       - SETGID
       - SETUID
+    networks:
+      - zenitsu-network
+
+  # Headless Chromium for /screenshot. Kept as its own service rather than
+  # installed into the bot image: Chromium is several GB, and baking it in
+  # would make every bot rebuild slow. Not published on a host port.
+  browserless:
+    image: ghcr.io/browserless/chromium:latest
+    environment:
+      - TOKEN=${BROWSERLESS_TOKEN:-zenitsu-local}
+      - CONCURRENT=2
+      - TIMEOUT=30000
+      # Refuse obviously private targets so a screenshot cannot be used to
+      # probe the host's other services.
+      - ALLOW_FILE_PROTOCOL=false
+    expose:
+      - "3000"
+    restart: unless-stopped
     networks:
       - zenitsu-network
 

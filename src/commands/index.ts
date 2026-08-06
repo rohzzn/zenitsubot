@@ -12,6 +12,9 @@ import { avatar } from './slash/util/avatar.js';
 import { server } from './slash/util/server.js';
 import { user } from './slash/util/user.js';
 import { remind } from './slash/util/remind.js';
+import { qr } from './slash/util/qr.js';
+import { screenshot } from './slash/util/screenshot.js';
+import { download } from './slash/util/download.js';
 
 // Music
 import { join } from './slash/music/join.js';
@@ -180,6 +183,60 @@ export const COMMANDS: CommandDefinition[] = [
     handler: remind,
     category: 'utility',
     summary: 'Set, list and cancel personal reminders',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('qr')
+      .setDescription('Make or read a QR code')
+      .addSubcommand((sub) =>
+        sub
+          .setName('make')
+          .setDescription('Turn text or a link into a QR code')
+          .addStringOption((o) =>
+            o.setName('text').setDescription('What to encode').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('read')
+          .setDescription('Decode a QR code from an image')
+          .addAttachmentOption((o) =>
+            o.setName('image').setDescription('Image containing a QR code').setRequired(true),
+          ),
+      ),
+    handler: qr,
+    category: 'utility',
+    summary: 'Make or read a QR code',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('screenshot')
+      .setDescription('Capture a screenshot of a web page')
+      .addStringOption((o) => o.setName('url').setDescription('Page to capture').setRequired(true))
+      .addStringOption((o) =>
+        o
+          .setName('device')
+          .setDescription('Viewport size')
+          .addChoices({ name: 'Desktop', value: 'desktop' }, { name: 'Mobile', value: 'mobile' }),
+      )
+      .addBooleanOption((o) =>
+        o.setName('full_page').setDescription('Capture the whole page, not just the viewport'),
+      ),
+    handler: screenshot,
+    category: 'utility',
+    summary: 'Capture a screenshot of a web page',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('download')
+      .setDescription('Download a video from YouTube, X, Instagram, TikTok, Reddit and more')
+      .addStringOption((o) =>
+        o.setName('url').setDescription('Link to the post or video').setRequired(true),
+      )
+      .addBooleanOption((o) => o.setName('audio_only').setDescription('Grab just the audio')),
+    handler: download,
+    category: 'utility',
+    summary: 'Download a video or its audio from a link',
   },
 
   // ------------------------------------------------------------------ Music
