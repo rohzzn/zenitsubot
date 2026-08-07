@@ -86,8 +86,6 @@ export const leaderboard = {
         },
       ]);
     }
-
-    embed.setFooter({ text: 'Keep climbing!' });
     embed.setTimestamp();
 
     await interaction.editReply({ embeds: [embed] });

@@ -1,0 +1,6 @@
+node_modules/
+dist/
+
+# Verbatim samples of someone else's markup. Reformatting them would move the
+# whitespace the parser tests assert on, so they are left exactly as captured.
+tests/fixtures/

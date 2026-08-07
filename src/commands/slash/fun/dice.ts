@@ -143,8 +143,6 @@ export const dice = {
         inline: false,
       },
     ]);
-
-    embed.setFooter({ text: 'Roll high to win big!' });
     embed.setTimestamp();
 
     await interaction.reply({ embeds: [embed] });

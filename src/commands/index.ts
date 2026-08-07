@@ -265,13 +265,149 @@ export const COMMANDS: CommandDefinition[] = [
   {
     builder: new SlashCommandBuilder()
       .setName('torrent')
-      .setDescription('Search the Internet Archive and get a magnet link')
-      .addStringOption((o) =>
-        o.setName('query').setDescription('What to look for').setRequired(true),
+      .setDescription('Search torrents, read a torrent page, watch for new releases')
+      .addSubcommand((sub) =>
+        sub
+          .setName('search')
+          .setDescription('Search several torrent indexes at once')
+          .addStringOption((o) =>
+            o.setName('query').setDescription('What to look for').setRequired(true),
+          )
+          .addStringOption((o) =>
+            o
+              .setName('source')
+              .setDescription('Defaults to 1337x and The Pirate Bay; add more from the results')
+              .addChoices(
+                { name: 'Every source', value: 'all' },
+                { name: '1337x — general', value: '1337x' },
+                { name: 'The Pirate Bay — broadest, good for games', value: 'piratebay' },
+                { name: 'Nyaa — anime', value: 'nyaa' },
+                { name: 'SolidTorrents — DHT index', value: 'solidtorrents' },
+                { name: 'FitGirl Repacks — compressed games', value: 'fitgirl' },
+                { name: 'Internet Archive — public domain', value: 'archive' },
+              ),
+          )
+          .addStringOption((o) =>
+            o
+              .setName('category')
+              .setDescription('Narrow the search to one category')
+              .addChoices(
+                { name: 'Movies', value: 'Movies' },
+                { name: 'TV', value: 'TV' },
+                { name: 'Games', value: 'Games' },
+                { name: 'Music', value: 'Music' },
+                { name: 'Apps', value: 'Apps' },
+                { name: 'Anime', value: 'Anime' },
+                { name: 'Documentaries', value: 'Documentaries' },
+                { name: 'Other', value: 'Other' },
+              ),
+          )
+          .addStringOption((o) =>
+            o
+              .setName('sort')
+              .setDescription('How to order results, defaults to best')
+              .addChoices(
+                { name: 'Best (quality and health)', value: 'best' },
+                { name: 'Seeders', value: 'seeders' },
+                { name: 'Upload time', value: 'time' },
+                { name: 'Size', value: 'size' },
+              ),
+          )
+          .addStringOption((o) =>
+            o
+              .setName('order')
+              .setDescription('Sort direction, defaults to descending')
+              .addChoices(
+                { name: 'Descending', value: 'desc' },
+                { name: 'Ascending', value: 'asc' },
+              ),
+          )
+          .addIntegerOption((o) =>
+            o
+              .setName('season')
+              .setDescription('Only this season of a show')
+              .setMinValue(0)
+              .setMaxValue(99),
+          )
+          .addIntegerOption((o) =>
+            o
+              .setName('episode')
+              .setDescription('Only this episode; season packs still count')
+              .setMinValue(0)
+              .setMaxValue(999),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub
+          .setName('scrape')
+          .setDescription('Read one 1337x torrent page in full')
+          .addStringOption((o) =>
+            o
+              .setName('torrent')
+              .setDescription('A 1337x torrent URL or its numeric id')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommandGroup((group) =>
+        group
+          .setName('watch')
+          .setDescription('Get told when new releases match a search')
+          .addSubcommand((sub) =>
+            sub
+              .setName('add')
+              .setDescription('Watch a search and announce new releases here')
+              .addStringOption((o) =>
+                o.setName('query').setDescription('What to watch for').setRequired(true),
+              )
+              .addStringOption((o) =>
+                o
+                  .setName('category')
+                  .setDescription('Narrow to one category')
+                  .addChoices(
+                    { name: 'Movies', value: 'Movies' },
+                    { name: 'TV', value: 'TV' },
+                    { name: 'Games', value: 'Games' },
+                    { name: 'Music', value: 'Music' },
+                    { name: 'Apps', value: 'Apps' },
+                    { name: 'Anime', value: 'Anime' },
+                    { name: 'Documentaries', value: 'Documentaries' },
+                    { name: 'Other', value: 'Other' },
+                  ),
+              )
+              .addStringOption((o) =>
+                o
+                  .setName('resolution')
+                  .setDescription('Only announce this resolution')
+                  .addChoices(
+                    { name: '2160p', value: '2160p' },
+                    { name: '1080p', value: '1080p' },
+                    { name: '720p', value: '720p' },
+                  ),
+              )
+              .addIntegerOption((o) =>
+                o
+                  .setName('min_seeders')
+                  .setDescription('Ignore releases below this many seeders')
+                  .setMinValue(0)
+                  .setMaxValue(10000),
+              ),
+          )
+          .addSubcommand((sub) => sub.setName('list').setDescription('Your active watches'))
+          .addSubcommand((sub) =>
+            sub
+              .setName('remove')
+              .setDescription('Stop a watch')
+              .addStringOption((o) =>
+                o
+                  .setName('watch')
+                  .setDescription('The watch id from /torrent watch list')
+                  .setRequired(true),
+              ),
+          ),
       ),
     handler: torrent,
     category: 'utility',
-    summary: 'Search the Internet Archive and get a magnet link',
+    summary: 'Search 1337x or the Internet Archive, read a page, watch for new releases',
   },
   {
     builder: new SlashCommandBuilder()
@@ -870,6 +1006,17 @@ export const COMMANDS: CommandDefinition[] = [
   },
 
   // --------------------------------------------------------------------- AI
+  {
+    builder: new SlashCommandBuilder()
+      .setName('ask')
+      .setDescription('Ask a question, answered from live web results')
+      .addStringOption((o) =>
+        o.setName('question').setDescription('What you want to know').setRequired(true),
+      ),
+    handler: ask,
+    category: 'ai',
+    summary: 'Ask a question, answered from live web results',
+  },
   {
     builder: new SlashCommandBuilder()
       .setName('aimodel')

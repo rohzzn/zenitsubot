@@ -72,8 +72,7 @@ export const npm = {
               inline: true,
             },
             { name: 'Dependencies', value: `${deps.length}`, inline: true },
-          )
-          .setFooter({ text: 'npm' });
+          );
 
         if (pkg.dist?.unpackedSize) {
           embed.addFields({
@@ -143,8 +142,7 @@ export const pypi = {
             { name: 'License', value: truncate(info.license || 'Unknown', 60), inline: true },
             { name: 'Requires Python', value: info.requires_python || 'Any', inline: true },
             { name: 'Dependencies', value: `${deps.length}`, inline: true },
-          )
-          .setFooter({ text: 'PyPI' });
+          );
 
         if (deps.length) {
           embed.addFields({
@@ -207,8 +205,7 @@ export const crates = {
               inline: true,
             },
             { name: 'Updated', value: relativeTime(c.updated_at), inline: true },
-          )
-          .setFooter({ text: 'crates.io' });
+          );
 
         if (c.repository)
           embed.addFields({ name: 'Repository', value: c.repository, inline: false });

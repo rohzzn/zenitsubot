@@ -77,7 +77,6 @@ export const announce = {
       .setColor(ZENITSU_THEME.PRIMARY)
       .setTitle(title)
       .setDescription(message)
-      .setFooter({ text: 'Announcement from the bot owner' })
       .setTimestamp();
 
     let sent = 0;

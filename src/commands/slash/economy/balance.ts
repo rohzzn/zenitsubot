@@ -72,7 +72,6 @@ export const balance = {
           inline: false,
         },
       ])
-      .setFooter({ text: 'Global Economy' })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed] });

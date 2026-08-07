@@ -85,8 +85,7 @@ export const gh = {
           { name: 'Language', value: repo.language || 'Unknown', inline: true },
           { name: 'License', value: repo.license?.spdx_id || 'None', inline: true },
           { name: 'Last push', value: relativeTime(repo.pushed_at), inline: true },
-        )
-        .setFooter({ text: 'GitHub' });
+        );
 
       if (repo.topics?.length) {
         embed.addFields({
@@ -135,8 +134,7 @@ export const ghuser = {
           { name: 'Followers', value: user.followers.toLocaleString(), inline: true },
           { name: 'Following', value: user.following.toLocaleString(), inline: true },
           { name: 'Joined', value: relativeTime(user.created_at), inline: true },
-        )
-        .setFooter({ text: 'GitHub' });
+        );
 
       if (user.location) embed.addFields({ name: 'Location', value: user.location, inline: true });
       if (user.blog) embed.addFields({ name: 'Website', value: user.blog, inline: true });

@@ -11,7 +11,7 @@ datasource db {
 model GuildConfig {
   id                 String   @id @default(cuid())
   guildId            String   @unique
-  modLogChannelId    String?  // channel to log moderation actions
+  modLogChannelId    String? // channel to log moderation actions
   welcomeEnabled     Boolean  @default(false)
   welcomeChannelId   String?
   welcomeMessage     String?
@@ -39,13 +39,13 @@ model Reminder {
 }
 
 model ReactionRole {
-  id          String   @id @default(cuid())
-  guildId     String
-  messageId   String
-  channelId   String
-  emoji       String
-  roleId      String
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  guildId   String
+  messageId String
+  channelId String
+  emoji     String
+  roleId    String
+  createdAt DateTime @default(now())
 
   @@unique([messageId, emoji])
   @@index([guildId])
@@ -74,48 +74,67 @@ model BotSetting {
 model Blacklist {
   id        String   @id @default(cuid())
   targetId  String   @unique
-  type      String   // "user" or "guild"
+  type      String // "user" or "guild"
   reason    String?
   createdAt DateTime @default(now())
 }
 
 model User {
-  id                    String   @id @default(cuid())
-  userId                String   @unique  // Discord user ID
-  balance               Int      @default(0)  // Wallet balance
-  bank                  Int      @default(0)  // Bank balance
-  linkedRolesVerified   Boolean  @default(false)
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String   @unique // Discord user ID
+  balance             Int      @default(0) // Wallet balance
+  bank                Int      @default(0) // Bank balance
+  linkedRolesVerified Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model UserEconomy {
-  id            String   @id @default(cuid())
-  userId        String   @unique  // Global per user, not per guild
-  coins         Int      @default(0)
-  level         Int      @default(1)
-  xp            Int      @default(0)
-  lastDaily     DateTime?
-  lastWork      DateTime?
-  lastRob       DateTime?
-  totalWagered  Int      @default(0)  // Total amount wagered
-  totalWon      Int      @default(0)   // Total amount won
-  gamesPlayed   Int      @default(0)   // Total games played
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String    @id @default(cuid())
+  userId       String    @unique // Global per user, not per guild
+  coins        Int       @default(0)
+  level        Int       @default(1)
+  xp           Int       @default(0)
+  lastDaily    DateTime?
+  lastWork     DateTime?
+  lastRob      DateTime?
+  totalWagered Int       @default(0) // Total amount wagered
+  totalWon     Int       @default(0) // Total amount won
+  gamesPlayed  Int       @default(0) // Total games played
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 model UserInventory {
   id        String   @id @default(cuid())
   userId    String
-  itemId    String   // Item identifier (e.g., "bg_sunset", "badge_winner")
-  itemType  String   // "background", "badge", "color"
+  itemId    String // Item identifier (e.g., "bg_sunset", "badge_winner")
+  itemType  String // "background", "badge", "color"
   itemName  String
   equipped  Boolean  @default(false)
   createdAt DateTime @default(now())
-  
+
   @@unique([userId, itemId])
   @@index([userId])
 }
 
+/// A saved 1337x search the bot re-runs on a schedule, announcing releases it
+/// has not seen before. `seenIds` is a capped, comma-separated list of torrent
+/// ids already announced, which is what stops a watch repeating itself.
+model TorrentWatch {
+  id            String    @id @default(cuid())
+  guildId       String
+  channelId     String    @default("") // where to post; DM fallback when empty
+  userId        String
+  query         String
+  category      String?
+  resolution    String?
+  minSeeders    Int       @default(0)
+  seenIds       String    @default("")
+  active        Boolean   @default(true)
+  lastCheckedAt DateTime?
+  createdAt     DateTime  @default(now())
 
+  @@index([active])
+  @@index([userId])
+}
