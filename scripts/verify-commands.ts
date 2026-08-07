@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { REST, Routes } from 'discord.js';
 import { COMMANDS } from '../src/commands/index.js';
+import { CONTEXT_MENUS } from '../src/commands/context.js';
 
 /**
  * Cross-checks three things that must stay in agreement:
@@ -99,7 +100,12 @@ async function compareWithDiscord(): Promise<number> {
     options?: OptionJson[];
   }>;
 
-  const localNames = new Set(COMMANDS.map((c) => c.handler.data.name));
+  // Right-click commands live in the same guild list as slash commands, so
+  // they have to be counted here or every one of them reads as stale.
+  const localNames = new Set([
+    ...COMMANDS.map((c) => c.handler.data.name),
+    ...CONTEXT_MENUS.map((c) => c.name),
+  ]);
   const remoteNames = new Set(remote.map((c) => c.name));
   let failures = globals.length > 0 ? 1 : 0;
 

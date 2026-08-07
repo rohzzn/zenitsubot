@@ -49,6 +49,7 @@ async function main() {
   const { registerVoiceStateListener } = await import('./listeners/voiceStateUpdate.js');
   const { registerMentionChatListener } = await import('./listeners/mentionChat.js');
   const { default: registerButtonHandler } = await import('./listeners/buttonInteraction.js');
+  const { registerComponentRouter } = await import('./listeners/componentRouter.js');
 
   registerReadyListener(client);
   registerInteractionCreateListener(client);
@@ -57,6 +58,7 @@ async function main() {
   registerVoiceStateListener(client);
   registerMentionChatListener(client);
   registerButtonHandler(client);
+  registerComponentRouter(client);
 
   const { startReminderScheduler } = await import('./services/reminderScheduler.js');
   const { startTorrentWatchScheduler } = await import('./services/torrentWatch.js');
@@ -68,7 +70,8 @@ async function main() {
     logger.error({ err }, 'UncaughtException');
   });
 
-  client.once('ready', () => {
+  // 'ready' is deprecated in discord.js v14 and removed in v15.
+  client.once('clientReady', () => {
     startReminderScheduler(client);
     startTorrentWatchScheduler(client);
   });

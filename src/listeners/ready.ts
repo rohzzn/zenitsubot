@@ -1,5 +1,9 @@
 import type { Client } from 'discord.js';
 import { logger } from '../services/logger.js';
+import { pruneExpiredState } from '../services/componentState.js';
+
+/** Component state outlives the process by design, so something has to sweep it. */
+const STATE_PRUNE_INTERVAL_MS = 60 * 60 * 1000;
 
 /**
  * Startup does NOT register slash commands.
@@ -15,7 +19,8 @@ import { logger } from '../services/logger.js';
  *   npm run register:commands  # push the registry to Discord
  */
 export function registerReadyListener(client: Client) {
-  client.once('ready', () => {
+  // 'ready' is deprecated in discord.js v14 and gone in v15.
+  client.once('clientReady', () => {
     logger.info(
       {
         user: client.user?.tag,
@@ -24,5 +29,8 @@ export function registerReadyListener(client: Client) {
       },
       'Bot ready',
     );
+
+    void pruneExpiredState();
+    setInterval(() => void pruneExpiredState(), STATE_PRUNE_INTERVAL_MS).unref();
   });
 }

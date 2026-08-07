@@ -6,6 +6,7 @@ import {
   CATEGORY_ORDER,
   commandsByCategory,
 } from '../src/commands/index.js';
+import { CONTEXT_MENUS } from '../src/commands/context.js';
 
 function getEnv(name: string): string {
   const v = process.env[name];
@@ -35,7 +36,12 @@ async function main() {
   }
 
   const rest = new REST({ version: '10' }).setToken(token);
-  const body = COMMANDS.map((c) => c.builder.toJSON());
+  // Slash commands and right-click commands share one PUT: the payload replaces
+  // everything, so sending only one kind would delete the other.
+  const body = [
+    ...COMMANDS.map((c) => c.builder.toJSON()),
+    ...CONTEXT_MENUS.map((c) => c.builder.toJSON()),
+  ];
 
   // Guild-scoped only, and the global list is deliberately emptied.
   //
@@ -45,7 +51,9 @@ async function main() {
   // The bot registers commands for any new guild it joins, in guildCreate.
   const guilds = (await rest.get(Routes.userGuilds())) as Array<{ id: string; name: string }>;
 
-  console.log(`Registering ${COMMANDS.length} commands in ${guilds.length} guild(s)...`);
+  console.log(
+    `Registering ${COMMANDS.length} commands and ${CONTEXT_MENUS.length} right-click commands in ${guilds.length} guild(s)...`,
+  );
 
   for (const guild of guilds) {
     try {
@@ -76,7 +84,9 @@ async function main() {
     console.log(`    ${commands.map((c) => c.handler.data.name).join(', ')}`);
   }
 
-  console.log(`\nTotal: ${COMMANDS.length} commands.`);
+  console.log(
+    `\nTotal: ${COMMANDS.length} commands, ${CONTEXT_MENUS.length} right-click commands.`,
+  );
 }
 
 main().catch((err) => {

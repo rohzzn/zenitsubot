@@ -1,41 +1,48 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
-import { ChannelType, EmbedBuilder } from 'discord.js';
-import { ZENITSU_THEME } from '../../../utils/constants.js';
+import { ChannelType, SectionBuilder } from 'discord.js';
+import { card, withThumbnail, paragraph, divider, facts, v2 } from '../../../utils/layout.js';
 
 export const server = {
   data: { name: 'server' },
   category: 'util',
+
   async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     const guild = interaction.guild!;
     const channels = guild.channels.cache;
 
-    const embed = new EmbedBuilder()
-      .setColor(ZENITSU_THEME.PRIMARY)
-      .setTitle(guild.name)
-      .addFields(
-        { name: 'Members', value: `${guild.memberCount}`, inline: true },
-        { name: 'Owner', value: `<@${guild.ownerId}>`, inline: true },
-        {
-          name: 'Created',
-          value: `<t:${Math.floor(guild.createdTimestamp / 1000)}:D>`,
-          inline: true,
-        },
-        {
-          name: 'Channels',
-          value: `${channels.filter((c) => c.type === ChannelType.GuildText).size} text • ${
-            channels.filter((c) => c.type === ChannelType.GuildVoice).size
-          } voice`,
-          inline: true,
-        },
-        { name: 'Roles', value: `${guild.roles.cache.size}`, inline: true },
-        { name: 'Boosts', value: `${guild.premiumSubscriptionCount ?? 0}`, inline: true },
-      )
-      .setTimestamp();
+    const container = card();
 
-    // iconURL() is null for icon-less guilds; setThumbnail rejects empty strings.
-    const icon = guild.iconURL({ size: 256 });
-    if (icon) embed.setThumbnail(icon);
+    const heading = withThumbnail(
+      `## ${guild.name}\n${guild.description ?? `${guild.memberCount.toLocaleString()} members`}`,
+      guild.iconURL({ size: 256, extension: 'png' }),
+    );
+    if (heading instanceof SectionBuilder) container.addSectionComponents(heading);
+    else container.addTextDisplayComponents(heading);
 
-    await interaction.reply({ embeds: [embed] });
+    container.addSeparatorComponents(divider());
+
+    container.addTextDisplayComponents(
+      paragraph(
+        facts([
+          ['Members', guild.memberCount.toLocaleString()],
+          ['Text', String(channels.filter((c) => c.type === ChannelType.GuildText).size)],
+          ['Voice', String(channels.filter((c) => c.type === ChannelType.GuildVoice).size)],
+          ['Roles', String(guild.roles.cache.size)],
+          ['Emoji', String(guild.emojis.cache.size)],
+          ['Boosts', `${guild.premiumSubscriptionCount ?? 0} (tier ${guild.premiumTier})`],
+        ]),
+      ),
+    );
+
+    // Kept out of the monospace block: <t:> and <@> do not render in a fence.
+    container.addTextDisplayComponents(
+      paragraph(
+        `**Owner**  <@${guild.ownerId}>\n` +
+          `**Created**  <t:${Math.floor(guild.createdTimestamp / 1000)}:D> ` +
+          `(<t:${Math.floor(guild.createdTimestamp / 1000)}:R>)`,
+      ),
+    );
+
+    await interaction.reply(v2([container]));
   },
 };

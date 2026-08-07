@@ -1,6 +1,12 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
-import { ActionRowBuilder, StringSelectMenuBuilder, ComponentType, type Message } from 'discord.js';
+import { ActionRowBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { card, paragraph, divider, caption, v2, v2Update, type Block } from '../../utils/layout.js';
+import {
+  attachState,
+  componentId,
+  registerComponentHandler,
+  type ComponentHandler,
+} from '../../listeners/componentRouter.js';
 import {
   CATEGORY_LABELS,
   POPULATED_CATEGORIES,
@@ -9,9 +15,9 @@ import {
   type CommandCategory,
 } from '../index.js';
 
-const MENU_ID = 'help_category';
+const KIND = 'help';
 const OVERVIEW = 'overview';
-const MENU_TIMEOUT_MS = 5 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 function overview(): Block[] {
   const rows = POPULATED_CATEGORIES.map((category) => {
@@ -64,7 +70,7 @@ function categoryView(category: CommandCategory): Block[] {
 
 function menu(selected: string): ActionRowBuilder<StringSelectMenuBuilder> {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    new StringSelectMenuBuilder().setCustomId(MENU_ID).addOptions([
+    new StringSelectMenuBuilder().setCustomId(componentId(KIND, 'page')).addOptions([
       { label: 'Overview', value: OVERVIEW, default: selected === OVERVIEW },
       ...POPULATED_CATEGORIES.map((category) => ({
         label: CATEGORY_LABELS[category].label,
@@ -76,48 +82,41 @@ function menu(selected: string): ActionRowBuilder<StringSelectMenuBuilder> {
   );
 }
 
+function render(choice: string): Block[] {
+  return [
+    ...(choice === OVERVIEW ? overview() : categoryView(choice as CommandCategory)),
+    menu(choice),
+  ];
+}
+
+/**
+ * The menu holds no state of its own — the chosen category arrives with the
+ * interaction. The row exists so the router can find an owner and so an
+ * expired message says so instead of failing silently.
+ */
+const handler: ComponentHandler<Record<string, never>> = {
+  kind: KIND,
+  ttlMs: DAY_MS,
+  expiredMessage: 'This help menu has expired. Run `/help` again.',
+  async handle({ interaction }) {
+    if (!interaction.isStringSelectMenu()) return;
+    await interaction.update(v2Update(render(interaction.values[0]!)));
+  },
+};
+
+registerComponentHandler(handler);
+
 export const help = {
   data: { name: 'help' },
   category: 'utility',
 
   async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
-    const render = (choice: string) =>
-      v2(
-        [
-          ...(choice === OVERVIEW ? overview() : categoryView(choice as CommandCategory)),
-          menu(choice),
-        ],
-        { ephemeral: true },
-      );
-
-    const message = (await interaction
-      .reply({
-        ...render(OVERVIEW),
-        withResponse: true,
-      })
-      .then((r) => r.resource!.message!)) as Message;
-
-    const collector = message.createMessageComponentCollector({
-      componentType: ComponentType.StringSelect,
-      time: MENU_TIMEOUT_MS,
+    const response = await interaction.reply({
+      ...v2(render(OVERVIEW), { ephemeral: true }),
+      withResponse: true,
     });
 
-    collector.on('collect', async (select) => {
-      if (select.user.id !== interaction.user.id) {
-        await select.reply({ content: 'Not your menu.', ephemeral: true });
-        return;
-      }
-      const choice = select.values[0]!;
-      await select.update(
-        v2Update([
-          ...(choice === OVERVIEW ? overview() : categoryView(choice as CommandCategory)),
-          menu(choice),
-        ]),
-      );
-    });
-
-    collector.on('end', () => {
-      void interaction.editReply({ components: [] }).catch(() => {});
-    });
+    const message = response.resource?.message;
+    if (message) await attachState(message.id, handler, interaction.user.id, {});
   },
 };

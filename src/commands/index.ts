@@ -496,7 +496,11 @@ export const COMMANDS: CommandDefinition[] = [
       .setName('play')
       .setDescription('Play a track from a search, YouTube link or Spotify playlist')
       .addStringOption((o) =>
-        o.setName('query').setDescription('Song name, artist, or URL').setRequired(true),
+        o
+          .setName('query')
+          .setDescription('Song name, artist, or URL')
+          .setRequired(true)
+          .setAutocomplete(true),
       ),
     handler: play,
     category: 'music',

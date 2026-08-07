@@ -8,6 +8,23 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Backing state for message components.
+///
+/// A collector only exists inside the running process, so every button in a
+/// message went dead the moment the bot restarted. Keying the state to the
+/// message id instead means a button works for as long as the row lives,
+/// across any number of deploys.
+model ComponentState {
+  messageId String   @id
+  kind      String // which command owns this message
+  ownerId   String // who may operate the controls
+  payload   String // JSON; shape is the owning command's business
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
 model GuildConfig {
   id                 String   @id @default(cuid())
   guildId            String   @unique

@@ -45,7 +45,7 @@ export const base64 = {
         { name: 'Output', value: block(output), inline: false },
       );
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed] });
   },
 };
 
@@ -67,7 +67,7 @@ export const hash = {
       )
       .setFooter({ text: 'Hashing is not encryption — never use this for passwords' });
 
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply({ embeds: [embed] });
   },
 };
 

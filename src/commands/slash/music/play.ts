@@ -1,4 +1,9 @@
-import type { Client, ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import type {
+  Client,
+  ChatInputCommandInteraction,
+  GuildMember,
+  AutocompleteInteraction,
+} from 'discord.js';
 import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import type { Node } from 'shoukaku';
 import { Constants } from 'shoukaku';
@@ -6,6 +11,9 @@ import { shoukaku } from '../../../music/lavalink.js';
 import type { Track } from '../../../music/track.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
 import { logger } from '../../../services/logger.js';
+
+/** Discord discards an autocomplete reply after three seconds; leave headroom. */
+const AUTOCOMPLETE_BUDGET_MS = 2200;
 
 /**
  * Picks a node that is actually connected. Taking the first node blindly means
@@ -21,6 +29,55 @@ function readyNode(): Node | null {
     if (node.state === Constants.State.CONNECTED) return node;
   }
   return null;
+}
+
+/**
+ * Suggests real tracks as the query is typed.
+ *
+ * Discord drops an autocomplete response that takes longer than three seconds,
+ * so this bails early rather than sending a search that will be thrown away:
+ * short queries are still being typed, and a URL needs no suggesting.
+ */
+async function suggestTracks(interaction: AutocompleteInteraction): Promise<void> {
+  const query = interaction.options.getFocused().trim();
+  if (query.length < 3 || /^https?:\/\//i.test(query)) {
+    await interaction.respond([]);
+    return;
+  }
+
+  const node = readyNode();
+  if (!node) {
+    await interaction.respond([]);
+    return;
+  }
+
+  try {
+    const result = await Promise.race([
+      node.rest.resolve(`ytsearch:${query}`),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), AUTOCOMPLETE_BUDGET_MS)),
+    ]);
+
+    if (!result || result.loadType !== 'search') {
+      await interaction.respond([]);
+      return;
+    }
+
+    await interaction.respond(
+      result.data.slice(0, 25).map((track) => {
+        const label = `${track.info.title} — ${track.info.author}`;
+        return {
+          // Both fields cap at 100 characters.
+          name: label.length > 100 ? `${label.slice(0, 99)}…` : label,
+          // The URL, not the title: it resolves to exactly the chosen track
+          // rather than re-searching and possibly landing somewhere else.
+          value: (track.info.uri ?? track.info.title).slice(0, 100),
+        };
+      }),
+    );
+  } catch {
+    // A failed suggestion must never block typing.
+    await interaction.respond([]).catch(() => {});
+  }
 }
 
 function extractVideoId(url: string): string | null {
@@ -100,6 +157,8 @@ export function createMusicButtons(): ActionRowBuilder<ButtonBuilder> {
 export const play = {
   data: { name: 'play' },
   category: 'music',
+
+  autocomplete: suggestTracks,
 
   async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     const query = interaction.options.getString('query', true).trim();

@@ -3,24 +3,21 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'disc
 import { shoukaku } from '../music/lavalink.js';
 import { logger } from '../services/logger.js';
 import { ZENITSU_THEME } from '../utils/constants.js';
-import { getPrisma } from '../services/db.js';
-import { activeGames, calculateHand, formatHand } from '../commands/slash/fun/blackjack.js';
 
+/**
+ * The music transport buttons.
+ *
+ * These legitimately read live state rather than stored state — the player and
+ * queue belong to the voice connection, not to the message — so they stay here
+ * rather than moving to the component router. Everything else that used this
+ * file now keeps its state in the database instead.
+ */
 export default function registerButtonHandler(client: Client) {
   client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
+    if (!interaction.customId.startsWith('music_')) return;
 
-    const buttonInteraction = interaction as ButtonInteraction;
-
-    // Music button handlers
-    if (buttonInteraction.customId.startsWith('music_')) {
-      await handleMusicButton(client, buttonInteraction);
-    }
-
-    // Blackjack button handlers
-    if (buttonInteraction.customId.startsWith('bj_')) {
-      await handleBlackjackButton(client, buttonInteraction);
-    }
+    await handleMusicButton(client, interaction as ButtonInteraction);
   });
 }
 
@@ -172,162 +169,4 @@ function formatDuration(ms: number): string {
     return `${hrs}:${finalMins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   return `${finalMins}:${secs.toString().padStart(2, '0')}`;
-}
-
-async function handleBlackjackButton(client: Client, interaction: ButtonInteraction) {
-  const userId = interaction.customId.split('_')[2];
-
-  if (interaction.user.id !== userId) {
-    await interaction.reply({ content: 'This is not your game!', ephemeral: true });
-    return;
-  }
-
-  const game = activeGames.get(userId!);
-  if (!game) {
-    await interaction.reply({ content: 'Game expired or not found!', ephemeral: true });
-    return;
-  }
-
-  const prisma = getPrisma();
-  const action = interaction.customId.split('_')[1];
-
-  try {
-    if (action === 'hit') {
-      // Draw a card
-      game.playerHand.push(game.deck.pop());
-      const playerTotal = calculateHand(game.playerHand);
-
-      if (playerTotal > 21) {
-        // Bust!
-        const userEcon = await prisma.userEconomy.findUnique({ where: { userId: game.userId } });
-        await prisma.userEconomy.update({
-          where: { userId: game.userId },
-          data: {
-            coins: { decrement: game.bet },
-            totalWagered: { increment: game.bet },
-            gamesPlayed: { increment: 1 },
-          },
-        });
-
-        const embed = new EmbedBuilder()
-          .setColor(ZENITSU_THEME.ERROR)
-          .setTitle('Bust!')
-          .setDescription(`You went over 21! Lost **${game.bet}** coins!`)
-          .addFields([
-            {
-              name: 'Your Hand',
-              value: `${formatHand(game.playerHand)}\nTotal: **${playerTotal}**`,
-            },
-            {
-              name: 'Dealer',
-              value: `${formatHand(game.dealerHand)}\nTotal: **${calculateHand(game.dealerHand)}**`,
-            },
-          ]);
-
-        activeGames.delete(userId!);
-        await interaction.update({ embeds: [embed], components: [] });
-      } else {
-        // Update with new card
-        const embed = new EmbedBuilder()
-          .setColor(ZENITSU_THEME.PRIMARY)
-          .setTitle('Blackjack')
-          .setDescription(`Bet: **${game.bet}** coins`)
-          .addFields([
-            {
-              name: 'Your Hand',
-              value: `${formatHand(game.playerHand)}\nTotal: **${playerTotal}**`,
-            },
-            {
-              name: 'Dealer',
-              value: `${game.dealerHand[0]!.value}${game.dealerHand[0]!.suit} [hidden]`,
-            },
-          ]);
-
-        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`bj_hit_${userId}`)
-            .setLabel('Hit')
-            .setStyle(ButtonStyle.Secondary),
-          new ButtonBuilder()
-            .setCustomId(`bj_stand_${userId}`)
-            .setLabel('Stand')
-            .setStyle(ButtonStyle.Secondary),
-        );
-
-        await interaction.update({ embeds: [embed], components: [buttons] });
-      }
-    } else if (action === 'stand' || action === 'double') {
-      let finalBet = game.bet;
-
-      if (action === 'double') {
-        finalBet = game.bet * 2;
-        game.playerHand.push(game.deck.pop());
-      }
-
-      // Dealer plays
-      let dealerTotal = calculateHand(game.dealerHand);
-      while (dealerTotal < 17) {
-        game.dealerHand.push(game.deck.pop());
-        dealerTotal = calculateHand(game.dealerHand);
-      }
-
-      const playerTotal = calculateHand(game.playerHand);
-      let result = '';
-      let color = ZENITSU_THEME.PRIMARY;
-      let coinChange = 0;
-
-      if (playerTotal > 21) {
-        result = `Bust! Lost **${finalBet}** coins!`;
-        color = ZENITSU_THEME.ERROR;
-        coinChange = -finalBet;
-      } else if (dealerTotal > 21 || playerTotal > dealerTotal) {
-        result = `You Win! Won **${finalBet}** coins!`;
-        color = ZENITSU_THEME.SUCCESS;
-        coinChange = finalBet;
-      } else if (playerTotal < dealerTotal) {
-        result = `Dealer Wins! Lost **${finalBet}** coins!`;
-        color = ZENITSU_THEME.ERROR;
-        coinChange = -finalBet;
-      } else {
-        result = `Push! Bet returned.`;
-        color = ZENITSU_THEME.PRIMARY;
-        coinChange = 0;
-      }
-
-      // Update coins and stats
-      const userEcon = await prisma.userEconomy.findUnique({ where: { userId: game.userId } });
-      await prisma.userEconomy.update({
-        where: { userId: game.userId },
-        data: {
-          coins: { increment: coinChange },
-          totalWagered: { increment: game.bet },
-          totalWon: { increment: coinChange > 0 ? coinChange + game.bet : 0 },
-          gamesPlayed: { increment: 1 },
-        },
-      });
-
-      const embed = new EmbedBuilder()
-        .setColor(color)
-        .setTitle('Game Over!')
-        .setDescription(result)
-        .addFields([
-          {
-            name: 'Your Hand',
-            value: `${formatHand(game.playerHand)}\nTotal: **${playerTotal}**`,
-            inline: true,
-          },
-          {
-            name: 'Dealer',
-            value: `${formatHand(game.dealerHand)}\nTotal: **${dealerTotal}**`,
-            inline: true,
-          },
-        ]);
-
-      activeGames.delete(userId!);
-      await interaction.update({ embeds: [embed], components: [] });
-    }
-  } catch (err: any) {
-    logger.error({ err }, 'Blackjack button error');
-    await interaction.reply({ content: 'An error occurred!', ephemeral: true }).catch(() => {});
-  }
 }

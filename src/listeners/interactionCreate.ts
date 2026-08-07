@@ -4,8 +4,11 @@ import type {
   AutocompleteInteraction,
   RepliableInteraction,
 } from 'discord.js';
+import { MessageFlags } from 'discord.js';
 import { logger } from '../services/logger.js';
 import { isBlacklisted } from '../services/blacklist.js';
+import { explain } from '../utils/errors.js';
+import { CONTEXT_MENUS } from '../commands/context.js';
 
 /**
  * Reports an error without assuming the interaction is still unanswered.
@@ -17,7 +20,7 @@ async function reportError(interaction: RepliableInteraction, content: string) {
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply({ content });
     } else {
-      await interaction.reply({ content, ephemeral: true });
+      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
     }
   } catch (err) {
     logger.warn({ err }, 'Could not deliver error message to user');
@@ -43,11 +46,29 @@ export function registerInteractionCreateListener(client: Client) {
       return;
     }
 
+    if (interaction.isContextMenuCommand()) {
+      if (isBlacklisted(interaction.user.id, interaction.guildId)) return;
+
+      const entry = CONTEXT_MENUS.find((c) => c.name === interaction.commandName);
+      if (!entry) return;
+
+      try {
+        await entry.execute(client, interaction);
+      } catch (err) {
+        const { message } = explain(err, {
+          contextMenu: interaction.commandName,
+          user: interaction.user.id,
+        });
+        await reportError(interaction, message);
+      }
+      return;
+    }
+
     if (!interaction.isChatInputCommand()) return;
 
     if (isBlacklisted(interaction.user.id, interaction.guildId)) {
       await interaction
-        .reply({ content: 'You do not have access to this bot.', ephemeral: true })
+        .reply({ content: 'You do not have access to this bot.', flags: MessageFlags.Ephemeral })
         .catch(() => {});
       return;
     }
@@ -62,8 +83,14 @@ export function registerInteractionCreateListener(client: Client) {
     try {
       await command.execute(client, interaction as ChatInputCommandInteraction);
     } catch (err) {
-      logger.error({ err, command: interaction.commandName }, 'Command execution failed');
-      await reportError(interaction, 'There was an error executing this command.');
+      // explain() decides what this was and logs it at the matching level, so a
+      // user typo no longer looks the same as a crash in `/logs`.
+      const { message } = explain(err, {
+        command: interaction.commandName,
+        user: interaction.user.id,
+        guild: interaction.guildId,
+      });
+      await reportError(interaction, message);
     }
   });
 }

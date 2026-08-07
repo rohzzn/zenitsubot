@@ -11,13 +11,39 @@ export interface FetchJsonOptions {
 }
 
 export class HttpError extends Error {
+  /** The host, for error messages that need to name who failed. */
+  readonly host: string;
+
   constructor(
     readonly status: number,
     url: string,
+    /** Seconds, from the Retry-After header when the service sent one. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(`Request to ${url} failed with ${status}`);
     this.name = 'HttpError';
+    this.host = safeHost(url);
   }
+}
+
+function safeHost(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return 'the service';
+  }
+}
+
+/** Retry-After is either a delay in seconds or an HTTP date. */
+function retryAfter(response: Response): number | undefined {
+  const header = response.headers.get('retry-after');
+  if (!header) return undefined;
+
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return seconds;
+
+  const at = Date.parse(header);
+  return Number.isFinite(at) ? Math.max(0, (at - Date.now()) / 1000) : undefined;
 }
 
 /**
@@ -35,7 +61,7 @@ export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}):
     });
 
     if (response.status === 404) return null;
-    if (!response.ok) throw new HttpError(response.status, url);
+    if (!response.ok) throw new HttpError(response.status, url, retryAfter(response));
 
     return (await response.json()) as T;
   } catch (err) {

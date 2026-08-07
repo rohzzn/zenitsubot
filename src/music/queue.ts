@@ -91,4 +91,9 @@ export class GuildQueue {
   list(): Track[] {
     return [...this.tracks];
   }
+
+  /** Index of the playing track within list(), or -1 when nothing is playing. */
+  position(): number {
+    return this.currentIndex;
+  }
 }

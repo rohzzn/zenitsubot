@@ -1,12 +1,12 @@
-import type { Client, ChatInputCommandInteraction } from 'discord.js';
+import type { Client, ChatInputCommandInteraction, RepliableInteraction } from 'discord.js';
 import {
   ActionRowBuilder,
   AttachmentBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   SectionBuilder,
   StringSelectMenuBuilder,
-  type Message,
 } from 'discord.js';
 import { Jimp } from 'jimp';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
@@ -25,10 +25,17 @@ import {
 } from '../../../utils/layout.js';
 import { inspectSite, InspectError, type SiteReport } from '../../../services/siteInspect.js';
 import { logger } from '../../../services/logger.js';
+import {
+  attachState,
+  componentId,
+  registerComponentHandler,
+  type ComponentHandler,
+} from '../../../listeners/componentRouter.js';
 
-const MENU_ID = 'inspect_page';
-const MENU_TIMEOUT_MS = 5 * 60 * 1000;
+const KIND = 'inspect';
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const GALLERY_SIZE = 10;
+const MAX_STORED_IMAGES = 120;
 
 type Page = 'overview' | 'colors' | 'fonts' | 'images' | 'tech';
 
@@ -311,7 +318,7 @@ function tech(report: SiteReport): Block[] {
 
 function pageMenu(selected: Page, report: SiteReport): ActionRowBuilder<StringSelectMenuBuilder> {
   return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(
-    new StringSelectMenuBuilder().setCustomId(MENU_ID).addOptions([
+    new StringSelectMenuBuilder().setCustomId(componentId(KIND, 'page')).addOptions([
       { label: 'Overview', value: 'overview', default: selected === 'overview' },
       {
         label: 'Colours',
@@ -345,18 +352,137 @@ function galleryPager(page: number, total: number): ActionRowBuilder<ButtonBuild
   const pages = Math.ceil(total / GALLERY_SIZE);
   if (pages <= 1) return null;
 
+  // The target page travels in the custom id rather than in the state, so a
+  // click lands on the right page even if two people press at once.
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId('inspect_img_prev')
+      .setCustomId(componentId(KIND, 'img', Math.max(0, page - 1)))
       .setLabel('Previous')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page <= 0),
     new ButtonBuilder()
-      .setCustomId('inspect_img_next')
+      .setCustomId(componentId(KIND, 'img', Math.min(pages - 1, page + 1)))
       .setLabel(`Next (${page + 1}/${pages})`)
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(page >= pages - 1),
   );
+}
+
+interface InspectState {
+  report: SiteReport;
+  imagePage: number;
+}
+
+/**
+ * Rebuilds the whole message from state.
+ *
+ * Pure in the report so the router can render a message it never created —
+ * which is the point of the exercise, since the process that ran the command
+ * has usually been replaced by the time someone clicks.
+ */
+async function renderPage(
+  state: InspectState,
+  page: Page,
+): Promise<ReturnType<typeof v2Update> & { files: AttachmentBuilder[] }> {
+  const { report } = state;
+
+  // Regenerated rather than stored: it is derived from colours we already have,
+  // and a few hundred KB of PNG has no business in the database.
+  const palette = page === 'colors' ? await paletteImage(report).catch(() => null) : null;
+
+  const blocks: Block[] = (() => {
+    switch (page) {
+      case 'colors':
+        return colors(report, Boolean(palette));
+      case 'fonts':
+        return fonts(report);
+      case 'images':
+        return images(report, state.imagePage);
+      case 'tech':
+        return tech(report);
+      default:
+        return overview(report);
+    }
+  })();
+
+  if (page === 'images') {
+    const pager = galleryPager(state.imagePage, report.images.length);
+    if (pager) blocks.push(pager);
+  }
+
+  blocks.push(pageMenu(page, report));
+
+  return {
+    ...v2Update(blocks),
+    files: palette ? [new AttachmentBuilder(palette, { name: 'palette.png' })] : [],
+  };
+}
+
+const handler: ComponentHandler<InspectState> = {
+  kind: KIND,
+  ttlMs: WEEK_MS,
+  expiredMessage: 'This report has expired. Run `/inspect` again for fresh results.',
+  async handle({ interaction, action, args, state, save }) {
+    if (action === 'page' && interaction.isStringSelectMenu()) {
+      const page = interaction.values[0] as Page;
+      // Landing on the images page always starts at the beginning; carrying a
+      // stale offset from a previous visit reads as a bug.
+      const next = { ...state, imagePage: page === 'images' ? 0 : state.imagePage };
+      await interaction.update(await renderPage(next, page));
+      await save(next);
+      return;
+    }
+
+    if (action === 'img') {
+      const pages = Math.ceil(state.report.images.length / GALLERY_SIZE);
+      const target = Math.min(Math.max(Number(args[0] ?? 0), 0), Math.max(pages - 1, 0));
+      const next = { ...state, imagePage: target };
+      await interaction.update(await renderPage(next, 'images'));
+      await save(next);
+    }
+  },
+};
+
+registerComponentHandler(handler);
+
+/**
+ * The command body, shared with the "Inspect links" right-click command.
+ *
+ * Both entry points go through here so validateUrl runs on both. A second path
+ * that reimplemented the flow could quietly skip it, and validateUrl is what
+ * keeps this off the compose network and the loopback interface.
+ */
+export async function runInspect(interaction: RepliableInteraction, rawUrl: string): Promise<void> {
+  const check = validateUrl(rawUrl.trim());
+  if (!check.ok) {
+    await interaction.reply({ content: check.reason, flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  await interaction.deferReply();
+
+  let report: SiteReport;
+  try {
+    report = await inspectSite(check.url);
+  } catch (err) {
+    if (err instanceof InspectError) {
+      await interaction.editReply(err.message);
+      return;
+    }
+    logger.error({ err }, 'Inspect failed');
+    await interaction.editReply('Inspection failed.').catch(() => {});
+    return;
+  }
+
+  // Capped before it is persisted: a media-heavy page can list hundreds of
+  // images and only the first few pages are ever looked at.
+  const state: InspectState = {
+    report: { ...report, images: report.images.slice(0, MAX_STORED_IMAGES) },
+    imagePage: 0,
+  };
+
+  const message = await interaction.editReply(await renderPage(state, 'overview'));
+  await attachState(message.id, handler, interaction.user.id, state);
 }
 
 export const inspect = {
@@ -364,92 +490,6 @@ export const inspect = {
   category: 'utility',
 
   async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
-    const check = validateUrl(interaction.options.getString('url', true).trim());
-    if (!check.ok) {
-      await interaction.reply({ content: check.reason, ephemeral: true });
-      return;
-    }
-
-    await interaction.deferReply();
-
-    let report: SiteReport;
-    try {
-      report = await inspectSite(check.url);
-    } catch (err) {
-      if (err instanceof InspectError) {
-        await interaction.editReply(err.message);
-        return;
-      }
-      logger.error({ err }, 'Inspect failed');
-      await interaction.editReply('Inspection failed.').catch(() => {});
-      return;
-    }
-
-    const palette = await paletteImage(report).catch(() => null);
-    let imagePage = 0;
-
-    const render = (page: Page) => {
-      const blocks: Block[] = (() => {
-        switch (page) {
-          case 'colors':
-            return colors(report, Boolean(palette));
-          case 'fonts':
-            return fonts(report);
-          case 'images':
-            return images(report, imagePage);
-          case 'tech':
-            return tech(report);
-          default:
-            return overview(report);
-        }
-      })();
-
-      if (page === 'images') {
-        const pager = galleryPager(imagePage, report.images.length);
-        if (pager) blocks.push(pager);
-      }
-
-      blocks.push(pageMenu(page, report));
-
-      return {
-        ...v2Update(blocks),
-        files:
-          page === 'colors' && palette
-            ? [new AttachmentBuilder(palette, { name: 'palette.png' })]
-            : [],
-      };
-    };
-
-    const message = (await interaction.editReply(render('overview'))) as Message;
-
-    const collector = message.createMessageComponentCollector({ time: MENU_TIMEOUT_MS });
-
-    collector.on('collect', async (component) => {
-      if (component.user.id !== interaction.user.id) {
-        await component.reply({ content: 'Run your own `/inspect`.', ephemeral: true });
-        return;
-      }
-
-      if (component.isStringSelectMenu()) {
-        const page = component.values[0] as Page;
-        if (page === 'images') imagePage = 0;
-        await component.update(render(page));
-        return;
-      }
-
-      if (component.isButton()) {
-        const pages = Math.ceil(report.images.length / GALLERY_SIZE);
-        if (component.customId === 'inspect_img_prev') imagePage = Math.max(0, imagePage - 1);
-        else if (component.customId === 'inspect_img_next')
-          imagePage = Math.min(pages - 1, imagePage + 1);
-        else return;
-
-        await component.update(render('images'));
-      }
-    });
-
-    collector.on('end', () => {
-      void interaction.editReply({ components: [] }).catch(() => {});
-    });
+    await runInspect(interaction, interaction.options.getString('url', true));
   },
 };

@@ -3,6 +3,7 @@ import type {
   ChatInputCommandInteraction,
   ButtonInteraction,
   InteractionEditReplyOptions,
+  MessageComponentInteraction,
 } from 'discord.js';
 import {
   ActionRowBuilder,
@@ -11,11 +12,19 @@ import {
   ButtonStyle,
   ComponentType,
   EmbedBuilder,
+  MessageFlags,
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder,
   escapeMarkdown,
   type Message,
 } from 'discord.js';
+import {
+  attachState,
+  componentId,
+  registerComponentHandler,
+  type ComponentHandler,
+} from '../../../listeners/componentRouter.js';
+import { clearState } from '../../../services/componentState.js';
 import { brandEmbed, pagerRow, count, text, since } from '../../../utils/ui.js';
 import { getPrisma } from '../../../services/db.js';
 import { MAX_WATCHES_PER_USER } from '../../../services/torrentWatch.js';
@@ -58,7 +67,11 @@ import { planQuery, type QueryPlan } from '../../../services/torrentQuery.js';
 import { logger } from '../../../services/logger.js';
 
 const BROWSE_TIMEOUT_MS = 5 * 60 * 1000;
-const GET_MAGNET_ID = 'torrent_magnet';
+const ARCHIVE_KIND = 'tarc';
+const KIND = 'torrent';
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+/** Entries persisted with the message. Filters run over these; MAX_LISTED are shown. */
+const MAX_STORED = 60;
 
 /**
  * Discord caps an embed description at 4096 characters and brandEmbed trims to
@@ -289,7 +302,6 @@ function resultSelect(entries: Listed[], id: string): ActionRowBuilder<StringSel
 function sourceRow(
   active: SourceId[],
   category: string | undefined,
-  prefix: string,
 ): ActionRowBuilder<StringSelectMenuBuilder> {
   const options = SOURCES.map((source) =>
     new StringSelectMenuOptionBuilder()
@@ -300,7 +312,7 @@ function sourceRow(
   );
 
   const menu = new StringSelectMenuBuilder()
-    .setCustomId(`${prefix}src`)
+    .setCustomId(componentId(KIND, 'src'))
     .setPlaceholder('Sources to search…')
     .setMinValues(1)
     .setMaxValues(options.length)
@@ -315,14 +327,13 @@ function sourceRow(
 function filterRow(
   filters: Filter[],
   active: Set<string>,
-  prefix: string,
 ): ActionRowBuilder<ButtonBuilder> | undefined {
   if (filters.length === 0) return undefined;
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     filters.map((filter) =>
       new ButtonBuilder()
-        .setCustomId(`${prefix}f:${filter.token}`)
+        .setCustomId(componentId(KIND, 'f', filter.token))
         .setLabel(filter.label)
         .setStyle(active.has(filter.token) ? ButtonStyle.Primary : ButtonStyle.Secondary),
     ),
@@ -331,7 +342,7 @@ function filterRow(
   if (active.size > 0) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`${prefix}reset`)
+        .setCustomId(componentId(KIND, 'reset'))
         .setLabel('Clear')
         .setStyle(ButtonStyle.Danger),
     );
@@ -673,206 +684,272 @@ async function renderSearch(
     return;
   }
 
-  const prefix = `tx${interaction.id}:`;
-  const selectId = `${prefix}sel`;
-  const filters = availableFilters(entries);
-  const active = new Set<string>();
+  const state: BrowseState = {
+    context,
+    entries: entries.slice(0, MAX_STORED),
+    filters: availableFilters(entries),
+    active: [],
+    view: 'list',
+    detail: null,
+    detailMeta: null,
+  };
 
-  let view: 'list' | 'detail' = 'list';
-  let detail: Torrent1337xDetails | null = null;
-  let detailMeta: TmdbInfo | null = null;
-  let superseded = false;
+  const message = await interaction.editReply(browsePayload(state));
+  await attachState(message.id, handler, interaction.user.id, state);
+}
 
-  const visible = () => applyFilters(entries, active, filters).slice(0, MAX_LISTED);
+/** Everything the message needs to keep working after the process that built it is gone. */
+interface BrowseState {
+  context: SearchContext;
+  entries: Listed[];
+  filters: Filter[];
+  /** A Set does not survive JSON, so the tokens travel as an array. */
+  active: string[];
+  view: 'list' | 'detail';
+  detail: Torrent1337xDetails | null;
+  detailMeta: TmdbInfo | null;
+}
 
-  const payload = () => {
-    if (view === 'detail' && detail) {
-      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder()
-          .setCustomId(`${prefix}magnet`)
-          .setLabel('Get magnet')
-          .setStyle(ButtonStyle.Success),
-        new ButtonBuilder()
-          .setCustomId(`${prefix}back`)
-          .setLabel('Back to results')
-          .setStyle(ButtonStyle.Secondary),
-      );
+function visibleEntries(state: BrowseState): Listed[] {
+  return applyFilters(state.entries, new Set(state.active), state.filters).slice(0, MAX_LISTED);
+}
 
-      return { content: '', embeds: [detailsEmbed(detail, detailMeta)], components: [row] };
-    }
-
-    const shown = visible();
-    const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
-
-    if (shown.length > 0) {
-      rows.push(
-        resultSelect(shown, selectId) as ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>,
-      );
-    }
-
-    const filterButtons = filterRow(filters, active, prefix);
-    if (filterButtons) {
-      rows.push(filterButtons as ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>);
-    }
-
-    rows.push(
-      sourceRow(context.sources, context.category, prefix) as ActionRowBuilder<
-        StringSelectMenuBuilder | ButtonBuilder
-      >,
+function browsePayload(state: BrowseState) {
+  if (state.view === 'detail' && state.detail) {
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(componentId(KIND, 'magnet'))
+        .setLabel('Get magnet')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId(componentId(KIND, 'back'))
+        .setLabel('Back to results')
+        .setStyle(ButtonStyle.Secondary),
     );
-
-    if (plan.interpreted) {
-      rows.push(
-        new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`${prefix}literal`)
-            .setLabel('Search my words instead')
-            .setStyle(ButtonStyle.Secondary),
-        ) as ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>,
-      );
-    }
 
     return {
       content: '',
-      embeds: [
-        listEmbed(shown, context.query, {
-          plan,
-          filtered: active.size > 0,
-          total: entries.length,
-        }),
-      ],
-      components: rows,
+      embeds: [detailsEmbed(state.detail, state.detailMeta)],
+      components: [row],
     };
+  }
+
+  const shown = visibleEntries(state);
+  const rows: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [];
+
+  if (shown.length > 0) {
+    rows.push(
+      resultSelect(shown, componentId(KIND, 'sel')) as ActionRowBuilder<
+        StringSelectMenuBuilder | ButtonBuilder
+      >,
+    );
+  }
+
+  const filterButtons = filterRow(state.filters, new Set(state.active));
+  if (filterButtons) {
+    rows.push(filterButtons as ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>);
+  }
+
+  rows.push(
+    sourceRow(state.context.sources, state.context.category) as ActionRowBuilder<
+      StringSelectMenuBuilder | ButtonBuilder
+    >,
+  );
+
+  if (state.context.plan.interpreted) {
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(componentId(KIND, 'literal'))
+          .setLabel('Search my words instead')
+          .setStyle(ButtonStyle.Secondary),
+      ) as ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>,
+    );
+  }
+
+  return {
+    content: '',
+    embeds: [
+      listEmbed(shown, state.context.query, {
+        plan: state.context.plan,
+        filtered: state.active.length > 0,
+        total: state.entries.length,
+      }),
+    ],
+    components: rows,
+  };
+}
+
+/**
+ * Re-runs the search behind an existing message.
+ *
+ * Changing sources, or asking for a literal search, is a different query rather
+ * than a filter over what is on screen — so the whole message is rebuilt and
+ * its stored state replaced.
+ */
+async function researchInPlace(
+  interaction: MessageComponentInteraction,
+  context: SearchContext,
+): Promise<void> {
+  let outcome;
+  try {
+    outcome = await searchSources({
+      query: context.plan.search,
+      category: context.plan.category ?? context.category,
+      sources: context.sources,
+      limit: FETCH_LIMIT,
+    });
+  } catch (err) {
+    logger.error({ err, query: context.query }, 'Torrent search failed');
+    await interaction.followUp({
+      content: 'That search failed. The indexes may be unreachable right now.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const keep = (result: SourceResult) => context.allowAdult || result.category !== 'XXX';
+  let entries = outcome.results.filter(keep).map(enrich);
+
+  if (context.plan.resolution) {
+    const narrowed = entries.filter((e) => e.release.resolution === context.plan.resolution);
+    if (narrowed.length > 0) entries = narrowed;
+  }
+
+  entries = narrowToEpisode(entries, context.season ?? context.plan.season, context.episode);
+  if (context.sort === 'best') entries = rankByScore(entries);
+
+  if (entries.length === 0) {
+    await interaction.editReply({
+      content: `Nothing matched **${escapeMarkdown(context.query)}**.`,
+      embeds: [],
+      components: [],
+    });
+    await clearState(interaction.message.id);
+    return;
+  }
+
+  const next: BrowseState = {
+    context,
+    entries: entries.slice(0, MAX_STORED),
+    filters: availableFilters(entries),
+    active: [],
+    view: 'list',
+    detail: null,
+    detailMeta: null,
   };
 
-  const message = (await interaction.editReply(payload())) as Message;
+  await interaction.editReply(browsePayload(next));
+  await attachState(interaction.message.id, handler, interaction.user.id, next);
+}
 
-  const collector = message.createMessageComponentCollector({ time: BROWSE_TIMEOUT_MS });
+const handler: ComponentHandler<BrowseState> = {
+  kind: KIND,
+  ttlMs: WEEK_MS,
+  expiredMessage: 'This search has expired. Run `/torrent search` again for fresh results.',
 
-  collector.on('collect', async (component) => {
-    if (component.user.id !== interaction.user.id) {
-      await component.reply({
-        content: 'Run `/torrent search` yourself to browse.',
-        ephemeral: true,
-      });
-      return;
-    }
-
-    const id = component.customId;
-
-    if (component.isStringSelectMenu() && id === selectId) {
-      const index = Number(component.values[0]);
-      const chosen = visible()[index];
+  async handle({ interaction, action, args, rest, state, save }) {
+    if (action === 'sel' && interaction.isStringSelectMenu()) {
+      const chosen = visibleEntries(state)[Number(interaction.values[0])];
       if (!chosen) {
-        await component.deferUpdate();
+        await interaction.deferUpdate();
         return;
       }
 
-      const cooldown = take1337xCooldown(component.user.id, 'details');
+      const cooldown = take1337xCooldown(interaction.user.id, 'details');
       if (cooldown > 0) {
-        await component.reply({
+        await interaction.reply({
           content: `Slow down — try again in ${Math.ceil(cooldown / 1000)}s.`,
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
         });
         return;
       }
 
       // Scraping the detail page takes a moment.
-      await component.deferUpdate();
+      await interaction.deferUpdate();
       try {
-        detail = await detailsForResult(chosen);
-        detailMeta = await metadataFor(detail);
-        view = 'detail';
+        const detail = await detailsForResult(chosen);
+        const next: BrowseState = {
+          ...state,
+          detail,
+          detailMeta: await metadataFor(detail),
+          view: 'detail',
+        };
+        await interaction.editReply(browsePayload(next));
+        await save(next);
       } catch (err) {
         const reason =
           err instanceof Torrent1337xError ? err.message : 'Could not read that torrent page.';
         if (!(err instanceof Torrent1337xError)) logger.error({ err }, '1337x scrape failed');
-        await component.followUp({ content: reason, ephemeral: true });
+        await interaction.followUp({ content: reason, flags: MessageFlags.Ephemeral });
       }
-
-      await interaction.editReply(payload());
       return;
     }
 
-    if (component.isStringSelectMenu() && id === `${prefix}src`) {
-      const chosen = component.values as SourceId[];
-      // Re-running is the honest response: a different set of indexes is a
-      // different search, not a filter over what is already on screen.
-      await component.deferUpdate();
-      superseded = true;
-      collector.stop('sources changed');
-      await renderSearch(interaction, { ...context, sources: chosen });
-      return;
-    }
-
-    if (!component.isButton()) return;
-
-    if (id === `${prefix}magnet`) {
-      if (!detail) {
-        await component.deferUpdate();
-        return;
-      }
-      await component.reply(magnetOnlyReply(detail));
-      return;
-    }
-
-    if (id === `${prefix}back`) {
-      view = 'list';
-      detail = null;
-      detailMeta = null;
-      await component.update(payload());
-      return;
-    }
-
-    if (id === `${prefix}reset`) {
-      active.clear();
-      view = 'list';
-      await component.update(payload());
-      return;
-    }
-
-    if (id.startsWith(`${prefix}f:`)) {
-      const token = id.slice(`${prefix}f:`.length);
-      if (active.has(token)) active.delete(token);
-      else active.add(token);
-
-      // A filter combination with nothing left in it helps no one.
-      if (visible().length === 0) active.delete(token);
-
-      view = 'list';
-      detail = null;
-      await component.update(payload());
-      return;
-    }
-
-    if (id === `${prefix}literal`) {
-      await component.deferUpdate();
-      superseded = true;
-      collector.stop('superseded');
-      await renderSearch(interaction, {
-        ...context,
-        plan: { search: context.query, interpreted: false },
+    if (action === 'src' && interaction.isStringSelectMenu()) {
+      await interaction.deferUpdate();
+      await researchInPlace(interaction, {
+        ...state.context,
+        sources: interaction.values as SourceId[],
       });
       return;
     }
-  });
 
-  collector.on('end', () => {
-    if (superseded) return;
-    // Disabled rather than stripped, so an expired message still reads as one
-    // that used to work instead of looking half-rendered.
-    void interaction
-      .editReply({
-        components: [],
-        embeds: [
-          (payload().embeds[0] as EmbedBuilder).setFooter({
-            text: 'This search expired. Run /torrent search again.',
-          }),
-        ],
-      })
-      .catch(() => {});
-  });
-}
+    if (action === 'literal') {
+      await interaction.deferUpdate();
+      await researchInPlace(interaction, {
+        ...state.context,
+        plan: { search: state.context.query, interpreted: false },
+      });
+      return;
+    }
+
+    if (action === 'magnet') {
+      if (!state.detail) {
+        await interaction.deferUpdate();
+        return;
+      }
+      await interaction.reply(magnetOnlyReply(state.detail));
+      return;
+    }
+
+    if (action === 'back') {
+      const next: BrowseState = { ...state, view: 'list', detail: null, detailMeta: null };
+      await interaction.update(browsePayload(next));
+      await save(next);
+      return;
+    }
+
+    if (action === 'reset') {
+      const next: BrowseState = { ...state, active: [], view: 'list' };
+      await interaction.update(browsePayload(next));
+      await save(next);
+      return;
+    }
+
+    if (action === 'f') {
+      // Filter tokens carry their own colon (`res:1080p`), so the whole
+      // remainder is the token — args[0] would be just `res`.
+      const token = rest;
+      const active = new Set(state.active);
+      if (active.has(token)) active.delete(token);
+      else active.add(token);
+
+      let next: BrowseState = { ...state, active: [...active], view: 'list', detail: null };
+
+      // A filter combination with nothing left in it helps no one.
+      if (visibleEntries(next).length === 0) {
+        active.delete(token);
+        next = { ...next, active: [...active] };
+      }
+
+      await interaction.update(browsePayload(next));
+      await save(next);
+    }
+  },
+};
+
+registerComponentHandler(handler);
 
 async function runLeetxSearch(interaction: ChatInputCommandInteraction): Promise<void> {
   const query = interaction.options.getString('query', true).trim();
@@ -1083,12 +1160,28 @@ function archiveResultEmbed(result: TorrentResult, index: number, total: number)
 
 function archiveControls(index: number, total: number) {
   const rows: ActionRowBuilder<ButtonBuilder>[] = [];
-  if (total > 1) rows.push(pagerRow(index, total));
+
+  if (total > 1) {
+    rows.push(
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(componentId(ARCHIVE_KIND, 'go', Math.max(0, index - 1)))
+          .setLabel('Previous')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(index <= 0),
+        new ButtonBuilder()
+          .setCustomId(componentId(ARCHIVE_KIND, 'go', Math.min(total - 1, index + 1)))
+          .setLabel('Next')
+          .setStyle(ButtonStyle.Primary)
+          .setDisabled(index >= total - 1),
+      ),
+    );
+  }
 
   rows.push(
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(GET_MAGNET_ID)
+        .setCustomId(componentId(ARCHIVE_KIND, 'magnet', index))
         .setLabel('Get magnet link')
         .setStyle(ButtonStyle.Success),
     ),
@@ -1096,6 +1189,67 @@ function archiveControls(index: number, total: number) {
 
   return rows;
 }
+
+interface ArchiveState {
+  results: TorrentResult[];
+  index: number;
+}
+
+function archivePayload(state: ArchiveState) {
+  return {
+    embeds: [archiveResultEmbed(state.results[state.index]!, state.index, state.results.length)],
+    components: archiveControls(state.index, state.results.length),
+  };
+}
+
+const archiveHandler: ComponentHandler<ArchiveState> = {
+  kind: ARCHIVE_KIND,
+  ttlMs: WEEK_MS,
+  expiredMessage: 'These results have expired. Run `/torrent search` again.',
+
+  async handle({ interaction, action, args, state, save }) {
+    if (action === 'go') {
+      const index = Math.min(Math.max(Number(args[0] ?? 0), 0), state.results.length - 1);
+      const next = { ...state, index };
+      await interaction.update(archivePayload(next));
+      await save(next);
+      return;
+    }
+
+    if (action !== 'magnet') return;
+
+    // Fetching and parsing the .torrent takes a moment.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const chosen = state.results[Number(args[0] ?? state.index)] ?? state.results[state.index]!;
+
+    try {
+      const details = await magnetForArchiveItem(chosen);
+
+      const embed = brandEmbed({
+        author: { name: 'Magnet link' },
+        title: details.name.slice(0, 240),
+        description: `\`\`\`\n${details.magnet}\n\`\`\``,
+        footer: 'Copy the link above into your torrent client',
+      });
+
+      embed.addFields(
+        { name: 'Infohash', value: `\`${details.infoHash}\``, inline: false },
+        { name: 'Size', value: formatBytes(details.totalBytes), inline: true },
+        { name: 'Files', value: String(details.fileCount), inline: true },
+        { name: 'Trackers', value: String(details.trackers.length), inline: true },
+      );
+
+      await interaction.editReply({ embeds: [embed] });
+    } catch (err) {
+      await interaction.editReply(
+        err instanceof TorrentError ? err.message : 'Could not build a magnet for that item.',
+      );
+    }
+  },
+};
+
+registerComponentHandler(archiveHandler);
 
 async function runArchiveSearch(interaction: ChatInputCommandInteraction): Promise<void> {
   const query = interaction.options.getString('query', true).trim();
@@ -1114,78 +1268,9 @@ async function runArchiveSearch(interaction: ChatInputCommandInteraction): Promi
     return;
   }
 
-  let index = 0;
-  const payload = () => ({
-    embeds: [archiveResultEmbed(results[index]!, index, results.length)],
-    components: archiveControls(index, results.length),
-  });
-
-  const message = (await interaction.editReply(payload())) as Message;
-
-  const collector = message.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: BROWSE_TIMEOUT_MS,
-  });
-
-  collector.on('collect', async (button) => {
-    if (button.user.id !== interaction.user.id) {
-      await button.reply({ content: 'Run `/torrent` yourself to browse.', ephemeral: true });
-      return;
-    }
-
-    if (button.customId === GET_MAGNET_ID) {
-      // Fetching and parsing the .torrent takes a moment.
-      await button.deferReply({ ephemeral: true });
-
-      try {
-        const details = await magnetForArchiveItem(results[index]!);
-
-        const embed = brandEmbed({
-          author: { name: 'Magnet link' },
-          title: details.name.slice(0, 240),
-          description: `\`\`\`\n${details.magnet}\n\`\`\``,
-          footer: 'Copy the link above into your torrent client',
-        });
-
-        embed.addFields(
-          { name: 'Infohash', value: `\`${details.infoHash}\``, inline: false },
-          { name: 'Size', value: formatBytes(details.totalBytes), inline: true },
-          { name: 'Files', value: String(details.fileCount), inline: true },
-          { name: 'Trackers', value: String(details.trackers.length), inline: true },
-        );
-
-        await button.editReply({ embeds: [embed] });
-      } catch (err) {
-        await button.editReply(
-          err instanceof TorrentError ? err.message : 'Could not build a magnet for that item.',
-        );
-      }
-      return;
-    }
-
-    switch (button.customId) {
-      case 'pager_first':
-        index = 0;
-        break;
-      case 'pager_prev':
-        index = Math.max(0, index - 1);
-        break;
-      case 'pager_next':
-        index = Math.min(results.length - 1, index + 1);
-        break;
-      case 'pager_last':
-        index = results.length - 1;
-        break;
-      default:
-        return;
-    }
-
-    await button.update(payload());
-  });
-
-  collector.on('end', () => {
-    void interaction.editReply({ components: [] }).catch(() => {});
-  });
+  const state: ArchiveState = { results, index: 0 };
+  const message = await interaction.editReply(archivePayload(state));
+  await attachState(message.id, archiveHandler, interaction.user.id, state);
 }
 
 export const torrent = {

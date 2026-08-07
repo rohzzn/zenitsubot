@@ -120,6 +120,28 @@ export function facts(pairs: Array<[string, string]>): string {
   return `\`\`\`\n${body}\n\`\`\``;
 }
 
+/**
+ * A progress bar in box-drawing characters.
+ *
+ * Discord has no progress component, and a number like "1:42 / 3:58" makes the
+ * reader do the division themselves.
+ */
+export function bar(fraction: number, width = 24): string {
+  const filled = Math.round(Math.min(Math.max(fraction, 0), 1) * width);
+  return `${'━'.repeat(filled)}${'─'.repeat(Math.max(0, width - filled))}`;
+}
+
+/** Milliseconds as m:ss, or h:mm:ss once it runs past an hour. */
+export function clock(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const seconds = total % 60;
+  const minutes = Math.floor(total / 60) % 60;
+  const hours = Math.floor(total / 3600);
+
+  const mm = hours > 0 ? String(minutes).padStart(2, '0') : String(minutes);
+  return `${hours > 0 ? `${hours}:` : ''}${mm}:${String(seconds).padStart(2, '0')}`;
+}
+
 /** Subdued caption text; the V2 equivalent of an embed footer. */
 export function caption(markdown: string): TextDisplayBuilder {
   return paragraph(`-# ${markdown.slice(0, 300)}`);

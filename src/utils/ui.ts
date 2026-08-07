@@ -3,14 +3,20 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  ComponentType,
+  type APIEmbed,
   type ChatInputCommandInteraction,
-  type Message,
 } from 'discord.js';
 import { ZENITSU_THEME } from './constants.js';
 import { logger } from '../services/logger.js';
+import {
+  attachState,
+  componentId,
+  registerComponentHandler,
+  type ComponentHandler,
+} from '../listeners/componentRouter.js';
 
-const PAGER_TIMEOUT_MS = 5 * 60 * 1000;
+/** Long enough that scrolling back to a result and clicking still works. */
+const PAGER_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Discord silently drops an embed image whose URL it cannot fetch, which is
@@ -74,14 +80,24 @@ export function brandEmbed(options: BrandOptions = {}): EmbedBuilder {
   return embed;
 }
 
-const PAGER_IDS = {
-  first: 'pager_first',
-  prev: 'pager_prev',
-  next: 'pager_next',
-  last: 'pager_last',
-} as const;
+export const PAGER_KIND = 'pg';
+
+/**
+ * The destination page travels in the custom id rather than the direction.
+ *
+ * Two clicks landing at once used to apply "next" twice to the same starting
+ * index; naming the target instead makes each button mean exactly one page no
+ * matter what order the clicks arrive in.
+ */
+const PAGER_IDS = (index: number, total: number) => ({
+  first: componentId(PAGER_KIND, 'go', 0),
+  prev: componentId(PAGER_KIND, 'go', Math.max(0, index - 1)),
+  next: componentId(PAGER_KIND, 'go', Math.min(total - 1, index + 1)),
+  last: componentId(PAGER_KIND, 'go', total - 1),
+});
 
 export function pagerRow(index: number, total: number): ActionRowBuilder<ButtonBuilder> {
+  const ids = PAGER_IDS(index, total);
   const atStart = index <= 0;
   const atEnd = index >= total - 1;
 
@@ -91,7 +107,7 @@ export function pagerRow(index: number, total: number): ActionRowBuilder<ButtonB
   if (total > 3) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(PAGER_IDS.first)
+        .setCustomId(ids.first)
         .setLabel('First')
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(atStart),
@@ -100,12 +116,12 @@ export function pagerRow(index: number, total: number): ActionRowBuilder<ButtonB
 
   row.addComponents(
     new ButtonBuilder()
-      .setCustomId(PAGER_IDS.prev)
+      .setCustomId(ids.prev)
       .setLabel('Previous')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(atStart),
     new ButtonBuilder()
-      .setCustomId(PAGER_IDS.next)
+      .setCustomId(ids.next)
       .setLabel('Next')
       .setStyle(ButtonStyle.Primary)
       .setDisabled(atEnd),
@@ -114,7 +130,7 @@ export function pagerRow(index: number, total: number): ActionRowBuilder<ButtonB
   if (total > 3) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(PAGER_IDS.last)
+        .setCustomId(ids.last)
         .setLabel('Last')
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(atEnd),
@@ -131,6 +147,32 @@ export function pagerRow(index: number, total: number): ActionRowBuilder<ButtonB
  * a list: a single card per item leaves room for the image, which is the part
  * worth looking at.
  */
+/** Pages are stored as plain embed data; builders do not survive JSON. */
+interface PagerState {
+  pages: APIEmbed[];
+  content?: string;
+}
+
+function pagerPayload(state: PagerState, index: number) {
+  const clamped = Math.min(Math.max(index, 0), state.pages.length - 1);
+  return {
+    content: state.content ?? '',
+    embeds: [state.pages[clamped]!],
+    components: state.pages.length > 1 ? [pagerRow(clamped, state.pages.length)] : [],
+  };
+}
+
+const pagerHandler: ComponentHandler<PagerState> = {
+  kind: PAGER_KIND,
+  ttlMs: PAGER_TTL_MS,
+  expiredMessage: 'These results have expired. Run the command again.',
+  async handle({ interaction, args, state }) {
+    await interaction.update(pagerPayload(state, Number(args[0] ?? 0)));
+  },
+};
+
+registerComponentHandler(pagerHandler);
+
 export async function sendPaged(
   interaction: ChatInputCommandInteraction,
   pages: EmbedBuilder[],
@@ -138,50 +180,14 @@ export async function sendPaged(
 ): Promise<void> {
   if (pages.length === 0) return;
 
-  const payload = (index: number) => ({
-    ...extra,
-    embeds: [pages[index]!],
-    components: pages.length > 1 ? [pagerRow(index, pages.length)] : [],
-  });
+  const state: PagerState = { pages: pages.map((p) => p.toJSON()), content: extra.content };
 
-  const message = (await interaction.editReply(payload(0))) as Message;
-  if (pages.length === 1) return;
+  const message = await interaction.editReply(pagerPayload(state, 0));
 
-  let index = 0;
-  const collector = message.createMessageComponentCollector({
-    componentType: ComponentType.Button,
-    time: PAGER_TIMEOUT_MS,
-  });
-
-  collector.on('collect', async (button) => {
-    if (button.user.id !== interaction.user.id) {
-      await button.reply({ content: 'Run the command yourself to browse.', ephemeral: true });
-      return;
-    }
-
-    switch (button.customId) {
-      case PAGER_IDS.first:
-        index = 0;
-        break;
-      case PAGER_IDS.prev:
-        index = Math.max(0, index - 1);
-        break;
-      case PAGER_IDS.next:
-        index = Math.min(pages.length - 1, index + 1);
-        break;
-      case PAGER_IDS.last:
-        index = pages.length - 1;
-        break;
-      default:
-        return;
-    }
-
-    await button.update(payload(index));
-  });
-
-  collector.on('end', () => {
-    void interaction.editReply({ components: [] }).catch(() => {});
-  });
+  // A single page has nothing to page through, so nothing needs remembering.
+  if (pages.length > 1) {
+    await attachState(message.id, pagerHandler, interaction.user.id, state);
+  }
 }
 
 /** Numbers with thousands separators, or a dash when absent. */

@@ -1,10 +1,19 @@
 import type { Client, ChatInputCommandInteraction, GuildMember } from 'discord.js';
-import { EmbedBuilder } from 'discord.js';
+import { SectionBuilder } from 'discord.js';
 import { ZENITSU_THEME } from '../../../utils/constants.js';
+import { card, withThumbnail, paragraph, divider, facts, v2 } from '../../../utils/layout.js';
+
+/** Discord date, e.g. "7 August 2026", with the relative form beside it. */
+function on(timestamp: number | null): string {
+  if (!timestamp) return '-';
+  const seconds = Math.floor(timestamp / 1000);
+  return `<t:${seconds}:D> (<t:${seconds}:R>)`;
+}
 
 export const user = {
   data: { name: 'user' },
   category: 'util',
+
   async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
     const member =
       (interaction.options.getMember('target') as GuildMember | null) ??
@@ -12,37 +21,48 @@ export const user = {
 
     const roles = member.roles.cache
       .filter((role) => role.id !== interaction.guildId)
-      .sort((a, b) => b.position - a.position)
-      .map((role) => role.toString());
+      .sort((a, b) => b.position - a.position);
 
-    const embed = new EmbedBuilder()
-      .setColor(member.displayColor || ZENITSU_THEME.PRIMARY)
-      .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL() })
-      .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
-      .addFields(
-        { name: 'ID', value: member.id, inline: true },
-        { name: 'Nickname', value: member.nickname ?? 'None', inline: true },
-        { name: 'Bot', value: member.user.bot ? 'Yes' : 'No', inline: true },
-        {
-          name: 'Joined Server',
-          value: member.joinedTimestamp
-            ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:D>`
-            : 'Unknown',
-          inline: true,
-        },
-        {
-          name: 'Account Created',
-          value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:D>`,
-          inline: true,
-        },
-        {
-          name: `Roles (${roles.length})`,
-          value: roles.length ? roles.slice(0, 15).join(' ') : 'None',
-          inline: false,
-        },
-      )
-      .setTimestamp();
+    const container = card(member.displayColor || ZENITSU_THEME.PRIMARY);
 
-    await interaction.reply({ embeds: [embed] });
+    const heading = withThumbnail(
+      `## ${member.user.tag}${member.user.bot ? ' · bot' : ''}\n${member.nickname ? `Known here as ${member.nickname}` : member.user.displayName}`,
+      member.user.displayAvatarURL({ size: 256, extension: 'png' }),
+    );
+    if (heading instanceof SectionBuilder) container.addSectionComponents(heading);
+    else container.addTextDisplayComponents(heading);
+
+    container.addSeparatorComponents(divider());
+
+    // Timestamps are left out of the monospace block on purpose: Discord's
+    // <t:> markup does not render inside a code fence.
+    container.addTextDisplayComponents(
+      paragraph(
+        facts([
+          ['ID', member.id],
+          ['Highest role', roles.first()?.name ?? 'none'],
+          ['Roles', String(roles.size)],
+        ]),
+      ),
+    );
+
+    container.addTextDisplayComponents(
+      paragraph(
+        `**Joined**  ${on(member.joinedTimestamp)}\n**Created**  ${on(member.user.createdTimestamp)}`,
+      ),
+    );
+
+    if (roles.size) {
+      const mentions = roles.map((role) => role.toString());
+      const shown = mentions.slice(0, 20).join(' ');
+      container.addSeparatorComponents(divider());
+      container.addTextDisplayComponents(
+        paragraph(
+          `**Roles**\n${shown}${mentions.length > 20 ? ` and ${mentions.length - 20} more` : ''}`,
+        ),
+      );
+    }
+
+    await interaction.reply(v2([container]));
   },
 };
