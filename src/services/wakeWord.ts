@@ -28,29 +28,89 @@ const WAKE_PATTERNS = [
   /**
    * The phonetic shape rather than a list of spellings.
    *
-   * Guessing spellings does not work. The list here originally covered
-   * zenitsu, zenitzu, senitsu, zanitsu and xenitsu, and the recogniser
-   * promptly produced "Zinitsu" — an `i` in the first syllable, which was not
-   * among them. Matching the sound instead covers the whole family:
+   * Guessing spellings does not work, and this has now been wrong twice. The
+   * first version listed zenitsu/zenitzu/senitsu/zanitsu/xenitsu and the
+   * recogniser produced "Zinitsu". The second required the `ts` affricate and
+   * the recogniser produced "zenito" and "sennetoo" — dropping the `s`
+   * altogether, and doubling the `n`.
    *
-   *   [zsx]  a sibilant start, since z and s are easily confused
-   *   vowel  any, because this is the part that varies most
-   *   n      the one consonant that survives every mishearing
-   *   vowel  optional, "zentsu" happens
-   *   t      required, and it is what keeps "sensu" out
-   *   [szc]  the affricate
+   * What actually survives every mishearing is the skeleton:
    *
-   * Requiring the `t` matters: without it "sensu" and similar ordinary words
-   * would wake the bot, and a false wake is worse than a missed one — it sends
+   *   [zsx]        a sibilant start; z and s are freely confused
+   *   vowel        varies wildly — e, i, a all observed
+   *   n+           one or two, "sennetoo" doubles it
+   *   vowel(s)     optional
+   *   t+           the one hard consonant that is always there
+   *   then either  an affricate (tsu, tzu, tsoo)
+   *                or a bare vowel ending (to, too, ta is excluded below)
+   *
+   * Something is required after the `t`, which is what keeps "sent", "santa",
+   * "cent" and "zenith" out. A false wake is worse than a missed one: it sends
    * audio nobody meant to send.
    */
-  /\b[zsx][aeiou]{1,2}n[aeiou]{0,2}t[szc][aeiou]?\b/i,
+  /\b[zsx][aeiou]{1,2}n+[aeiou]{0,2}t+(?:[szc][aeiou]{0,2}|[ou]{1,2})\b/i,
 
-  // Kept explicitly: a hyphen or space between syllables defeats the pattern
-  // above, and recognisers do sometimes split an unfamiliar name.
-  /\bzen[ _-]it[sz]u\b/i,
-  /\bzeni[ _-]tsu\b/i,
+  // Kept explicitly: a space or hyphen between syllables defeats the pattern
+  // above, and recognisers do split an unfamiliar name.
+  /\bzen+[ _-]?it[sz]?[ou]{1,2}\b/i,
+  /\bzen+i[ _-]ts[ou]\b/i,
+  /\bzen+[ _-]it[sz]u\b/i,
 ];
+
+/**
+ * How far a word can be from "zenitsu" and still count.
+ *
+ * A second chance for spellings the pattern misses. Recognisers rendering an
+ * unfamiliar Japanese name are inventive, and the cost of being slightly
+ * generous here is bounded — the word still has to start with a sibilant and
+ * be roughly the right length.
+ */
+const MAX_EDIT_DISTANCE = 2;
+const TARGET = 'zenitsu';
+
+function editDistance(a: string, b: string): number {
+  // Standard Levenshtein, one row at a time; the strings are a handful of
+  // characters so nothing cleverer is warranted.
+  let previous = Array.from({ length: b.length + 1 }, (_, i) => i);
+
+  for (let i = 1; i <= a.length; i++) {
+    const current = [i];
+    for (let j = 1; j <= b.length; j++) {
+      current[j] = Math.min(
+        previous[j]! + 1,
+        current[j - 1]! + 1,
+        previous[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+
+  return previous[b.length]!;
+}
+
+/**
+ * Real words close enough to trip the distance check.
+ *
+ * "zenith" is two edits from "zenitsu" and is an ordinary English word, so the
+ * fuzzy fallback matched it. Anything a person might actually say has to be
+ * excluded by name — the pattern above is precise enough not to need this, but
+ * the distance check is deliberately loose and needs the guard.
+ */
+const NOT_THE_NAME = new Set(['zenith', 'zeniths', 'senate', 'seniors', 'seniority', 'sensual']);
+
+/** Whether any single word in the text is a near-miss for the name. */
+function hasNearMiss(text: string): { hit: boolean; word?: string } {
+  for (const word of text.toLowerCase().match(/[a-z]+/g) ?? []) {
+    // Cheap gates first: the sibilant start and a plausible length are what
+    // stop this matching half the dictionary.
+    if (!/^[zsx]/.test(word)) continue;
+    if (word.length < 5 || word.length > 10) continue;
+    if (NOT_THE_NAME.has(word)) continue;
+    if (editDistance(word, TARGET) <= MAX_EDIT_DISTANCE) return { hit: true, word };
+  }
+
+  return { hit: false };
+}
 
 /** Filler that routinely precedes a name and carries nothing. */
 const LEADING_FILLER =
@@ -83,6 +143,19 @@ export function splitOnWakeWord(text: string): { woken: boolean; request: string
     const after = text
       .slice(match.index + match[0].length)
       // Whatever punctuation the recogniser put between the name and the rest.
+      .replace(/^[\s,.:;!?-]+/, '')
+      .trim();
+
+    return { woken: true, request: after };
+  }
+
+  // Nothing matched the shape; fall back to spelling distance, which catches
+  // renderings the pattern did not anticipate.
+  const near = hasNearMiss(text);
+  if (near.hit && near.word) {
+    const at = text.toLowerCase().indexOf(near.word);
+    const after = text
+      .slice(at + near.word.length)
       .replace(/^[\s,.:;!?-]+/, '')
       .trim();
 

@@ -92,6 +92,23 @@ export class ZenitsuVoice {
     this.player = createAudioPlayer();
     this.connection.subscribe(this.player);
 
+    // Idle means the player has finished with its resource and will not read
+    // from that stream again. Dropping the reference here is what lets the
+    // next turn build a fresh one instead of writing into a dead pipe.
+    this.player.on(AudioPlayerStatus.Idle, () => {
+      // Belt and braces alongside the end() on turn completion: if the player
+      // goes idle for any other reason, the stream it was reading from must
+      // not be written to again.
+      this.playback?.destroy();
+      this.playback = undefined;
+    });
+
+    this.player.on('error', (err) => {
+      logger.warn({ err: err.message }, 'Audio player error');
+      this.playback?.destroy();
+      this.playback = undefined;
+    });
+
     this.connection.receiver.speaking.on('start', (userId) => void this.onSpeaking(userId));
 
     this.watchForEmpty();
@@ -272,6 +289,16 @@ export class ZenitsuVoice {
       onAudio: (pcm) => this.speak(pcm),
       onInterrupted: () => this.stopSpeaking(),
       onTurnComplete: () => {
+        // Ends the stream rather than leaving it starved.
+        //
+        // A PassThrough nobody writes to does not finish, so the player sits
+        // "playing" an empty pipe and its state is ambiguous. Ending it lets
+        // the resource complete, the player go Idle, and the next turn build a
+        // fresh stream — deterministic, instead of depending on whether a
+        // buffer happened to run dry.
+        this.playback?.end();
+        this.playback = undefined;
+
         this.lastRepliedAt = Date.now();
         this.events.onState?.('listening');
       },
@@ -302,7 +329,14 @@ export class ZenitsuVoice {
   private speak(pcm24k: Buffer): void {
     if (this.stopped) return;
 
-    if (!this.playback) {
+    // A stream that is gone gets replaced.
+    //
+    // This is the bug that made Zenitsu speak exactly once and then never
+    // again while transcripts kept arriving. Between turns the model sends no
+    // audio, the stream underruns, and the player goes Idle and *drops the
+    // resource* — but the PassThrough it was reading from is still referenced
+    // here, so every later write went into a stream nobody was listening to.
+    if (!this.playback || this.playback.destroyed || this.playback.writableEnded) {
       this.playback = new PassThrough();
 
       const resource = createAudioResource(this.playback, {
