@@ -62,6 +62,7 @@ async function main() {
 
   const { startReminderScheduler } = await import('./services/reminderScheduler.js');
   const { startTorrentWatchScheduler } = await import('./services/torrentWatch.js');
+  const { startFeedScheduler } = await import('./services/feedScheduler.js');
 
   process.on('unhandledRejection', (reason) => {
     logger.error({ reason }, 'UnhandledRejection');
@@ -74,6 +75,7 @@ async function main() {
   client.once('clientReady', () => {
     startReminderScheduler(client);
     startTorrentWatchScheduler(client);
+    startFeedScheduler(client);
   });
 
   await client.login(config.DISCORD_BOT_TOKEN);

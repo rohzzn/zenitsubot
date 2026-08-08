@@ -25,6 +25,108 @@ model ComponentState {
   @@index([expiresAt])
 }
 
+/// One person's subscription to one feed.
+///
+/// Per-user rather than per-channel: the delivery people actually want is a
+/// DM, and a feed two people follow should be polled once, not twice — hence
+/// the shared FeedSource below holding everything about the feed itself.
+model FeedSubscription {
+  id       String @id @default(cuid())
+  userId   String
+  sourceId String
+
+  /// Overrides the feed's own title in listings, when someone renames it.
+  label String?
+
+  /// digest | instant | manual
+  mode       String  @default("digest")
+  /// Hour of the day, UTC, that a digest is sent.
+  digestHour Int     @default(9)
+  /// Comma-separated words; an item must contain one of these to be sent.
+  include    String?
+  /// Comma-separated words; an item containing any of these is never sent.
+  exclude    String?
+  paused     Boolean @default(false)
+  /// Set when delivery failed because the user's DMs are closed.
+  pauseNote  String?
+
+  createdAt   DateTime  @default(now())
+  lastSentAt  DateTime?
+  deliveredCount Int    @default(0)
+
+  source FeedSource   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  reads  FeedDelivery[]
+
+  @@unique([userId, sourceId])
+  @@index([mode, paused])
+}
+
+/// A feed, independent of who follows it. Polled once for everyone.
+model FeedSource {
+  id      String  @id @default(cuid())
+  url     String  @unique
+  title   String
+  siteUrl String?
+  iconUrl String?
+
+  /// Conditional-request headers, so an unchanged feed costs a 304.
+  etag         String?
+  lastModified String?
+
+  lastCheckedAt DateTime?
+  /// Consecutive failures; drives the backoff and eventually gives up.
+  failureCount  Int       @default(0)
+  lastError     String?
+  /// Set once a feed has failed long enough to stop polling it.
+  disabledAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  items         FeedItem[]
+  subscriptions FeedSubscription[]
+
+  @@index([disabledAt, lastCheckedAt])
+}
+
+/// An item seen in a feed. Doubles as the dedupe set and the delivery backlog.
+model FeedItem {
+  id       String @id @default(cuid())
+  sourceId String
+  /// The feed's own id for the item, falling back to the link.
+  guid     String
+
+  title       String
+  link        String
+  author      String?
+  summary     String?
+  imageUrl    String?
+  publishedAt DateTime?
+  seenAt      DateTime  @default(now())
+
+  source     FeedSource     @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  deliveries FeedDelivery[]
+
+  @@unique([sourceId, guid])
+  @@index([sourceId, seenAt])
+}
+
+/// Which items a subscriber has already been sent.
+///
+/// Separate from FeedItem because two people following the same feed are at
+/// different points in it — one on an hourly digest, one reading on demand.
+model FeedDelivery {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  itemId         String
+  sentAt         DateTime @default(now())
+
+  subscription FeedSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  item         FeedItem         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, itemId])
+  @@index([subscriptionId, sentAt])
+}
+
 model GuildConfig {
   id                 String   @id @default(cuid())
   guildId            String   @unique

@@ -14,6 +14,7 @@ import { user } from './slash/util/user.js';
 import { remind } from './slash/util/remind.js';
 import { qr } from './slash/util/qr.js';
 import { convert, compressCommand, exif } from './slash/util/image.js';
+import { feed } from './slash/util/feed.js';
 import { screenshot } from './slash/util/screenshot.js';
 import { download } from './slash/util/download.js';
 import { inspect } from './slash/util/inspect.js';
@@ -212,6 +213,31 @@ export const COMMANDS: CommandDefinition[] = [
     handler: qr,
     category: 'utility',
     summary: 'Make or read a QR code',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('feed')
+      .setDescription('Follow RSS feeds and subreddits, delivered by DM')
+      .addSubcommand((sub) =>
+        sub
+          .setName('add')
+          .setDescription('Follow a feed, a website, or a subreddit')
+          .addStringOption((o) =>
+            o
+              .setName('feed')
+              .setDescription('A feed URL, a site like example.com, or a subreddit like r/rust')
+              .setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('list').setDescription('See and manage everything you follow'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('read').setDescription('Show everything new across your feeds'),
+      ),
+    handler: feed,
+    category: 'utility',
+    summary: 'Follow RSS feeds and subreddits, delivered by DM',
   },
   {
     builder: new SlashCommandBuilder()
