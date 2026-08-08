@@ -8,6 +8,77 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// A book somebody dropped on the bot.
+///
+/// The parsed text is stored rather than the EPUB: parsing is the slow part,
+/// and keeping it means resuming a book costs nothing. The original file is
+/// not kept — it is the user's, and the bot has no use for it once read.
+model Audiobook {
+  id       String  @id @default(cuid())
+  /// Hash of the file, so the same book uploaded twice is the same row.
+  fileHash String  @unique
+  title    String
+  author   String?
+  language String?
+
+  /// Chapters as JSON: titles, paragraphs and sentence offsets.
+  content   String
+  chapters  Int
+  seconds   Int
+  addedBy   String
+  createdAt DateTime @default(now())
+
+  positions AudiobookPosition[]
+  bookmarks AudiobookBookmark[]
+
+  @@index([createdAt])
+}
+
+/// Where one person is in one book.
+///
+/// Per user rather than per guild: two people listening to the same book are
+/// at different points in it, and a shared position would fight.
+model AudiobookPosition {
+  id     String @id @default(cuid())
+  bookId String
+  userId String
+
+  chapter Int   @default(0)
+  /// Seconds into the chapter.
+  offset  Float @default(0)
+
+  voice     String  @default("Kore")
+  style     String  @default("natural")
+  speed     Float   @default(1.0)
+  finished  Boolean @default(false)
+  listened  Int     @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  book Audiobook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, userId])
+  @@index([userId, updatedAt])
+}
+
+model AudiobookBookmark {
+  id     String @id @default(cuid())
+  bookId String
+  userId String
+
+  chapter Int
+  offset  Float
+  /// The sentence being spoken, so a bookmark reads as a quote.
+  quote   String?
+  note    String?
+
+  createdAt DateTime @default(now())
+
+  book Audiobook @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([userId, bookId])
+}
+
 /// What Zenitsu knows about one person in voice.
 ///
 /// Keyed on the Discord user id, which the voice receiver hands over with every

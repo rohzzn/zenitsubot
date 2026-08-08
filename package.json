@@ -41,6 +41,7 @@
     "express-session": "^1.18.0",
     "jimp": "^1.6.1",
     "jsqr": "^1.4.0",
+    "jszip": "^3.10.1",
     "libsodium-wrappers": "^0.8.4",
     "opusscript": "^0.0.8",
     "passport": "^0.7.0",

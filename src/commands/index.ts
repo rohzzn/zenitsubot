@@ -15,6 +15,7 @@ import { remind } from './slash/util/remind.js';
 import { qr } from './slash/util/qr.js';
 import { convert, compressCommand, exif } from './slash/util/image.js';
 import { feed } from './slash/util/feed.js';
+import { audiobook } from './slash/util/audiobook.js';
 import { screenshot } from './slash/util/screenshot.js';
 import { download } from './slash/util/download.js';
 import { inspect } from './slash/util/inspect.js';
@@ -421,6 +422,29 @@ export const COMMANDS: CommandDefinition[] = [
     handler: exif,
     category: 'utility',
     summary: 'Read an image’s metadata, and strip it',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('audiobook')
+      .setDescription('Narrate an EPUB in your voice channel')
+      .addSubcommand((sub) =>
+        sub
+          .setName('play')
+          .setDescription('Start a book from an EPUB file')
+          .addAttachmentOption((o) =>
+            o.setName('file').setDescription('An EPUB file').setRequired(true),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('resume').setDescription('Pick up the book you were last reading'),
+      )
+      .addSubcommand((sub) => sub.setName('library').setDescription('Books you have started'))
+      .addSubcommand((sub) =>
+        sub.setName('stop').setDescription('Stop playback and save your place'),
+      ),
+    handler: audiobook,
+    category: 'utility',
+    summary: 'Narrate an EPUB in your voice channel',
   },
   {
     builder: new SlashCommandBuilder()
