@@ -13,6 +13,7 @@ import { server } from './slash/util/server.js';
 import { user } from './slash/util/user.js';
 import { remind } from './slash/util/remind.js';
 import { qr } from './slash/util/qr.js';
+import { convert, compressCommand, exif } from './slash/util/image.js';
 import { screenshot } from './slash/util/screenshot.js';
 import { download } from './slash/util/download.js';
 import { inspect } from './slash/util/inspect.js';
@@ -211,6 +212,162 @@ export const COMMANDS: CommandDefinition[] = [
     handler: qr,
     category: 'utility',
     summary: 'Make or read a QR code',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('convert')
+      .setDescription('Convert, resize and adjust an image')
+      .addAttachmentOption((o) =>
+        o.setName('image').setDescription('Image to convert').setRequired(true),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('format')
+          .setDescription('Output format (default: keep the original)')
+          // Ordered by what people actually want, not alphabetically.
+          .addChoices(
+            { name: 'WebP — small, keeps transparency', value: 'webp' },
+            { name: 'AVIF — smallest', value: 'avif' },
+            { name: 'JPEG — universal, no transparency', value: 'jpeg' },
+            { name: 'PNG — lossless', value: 'png' },
+            { name: 'TIFF — lossless, for print', value: 'tiff' },
+            { name: 'GIF — 256 colours', value: 'gif' },
+          ),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('quality')
+          .setDescription('1-100, default 82. Ignored by PNG and TIFF')
+          .setMinValue(1)
+          .setMaxValue(100),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('width')
+          .setDescription('Target width in pixels')
+          .setMinValue(1)
+          .setMaxValue(16000),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('height')
+          .setDescription('Target height in pixels')
+          .setMinValue(1)
+          .setMaxValue(16000),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('scale')
+          .setDescription('Percentage of the original, when no width or height is given')
+          .setMinValue(1)
+          .setMaxValue(400),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('fit')
+          .setDescription('How to fit the target size (default: inside)')
+          .addChoices(
+            { name: 'Inside — fit within, keep aspect', value: 'inside' },
+            { name: 'Cover — fill the box, crop overflow', value: 'cover' },
+            { name: 'Contain — fit within, pad the rest', value: 'contain' },
+            { name: 'Fill — stretch to the exact size', value: 'fill' },
+          ),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('rotate')
+          .setDescription('Rotate clockwise')
+          .addChoices(
+            { name: '90 degrees', value: 90 },
+            { name: '180 degrees', value: 180 },
+            { name: '270 degrees', value: 270 },
+          ),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('flip')
+          .setDescription('Mirror the image')
+          .addChoices(
+            { name: 'Horizontal', value: 'horizontal' },
+            { name: 'Vertical', value: 'vertical' },
+            { name: 'Both', value: 'both' },
+          ),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('background')
+          .setDescription('Hex colour behind transparency, e.g. #ffffff. Needed for JPEG'),
+      )
+      .addBooleanOption((o) => o.setName('grayscale').setDescription('Remove all colour'))
+      .addBooleanOption((o) =>
+        o
+          .setName('keep-metadata')
+          .setDescription('Keep EXIF and colour profile (default: stripped)'),
+      ),
+    handler: convert,
+    category: 'utility',
+    summary: 'Convert, resize and adjust an image',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('compress')
+      .setDescription('Shrink an image to fit a size limit')
+      .addAttachmentOption((o) =>
+        o.setName('image').setDescription('Image to compress').setRequired(true),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('target')
+          .setDescription('Size to get under (default: this server’s upload limit)')
+          .addChoices(
+            { name: 'Discord upload limit', value: 'discord' },
+            { name: '8 MB', value: '8mb' },
+            { name: '5 MB', value: '5mb' },
+            { name: '2 MB', value: '2mb' },
+            { name: '1 MB', value: '1mb' },
+            { name: '500 KB', value: '500kb' },
+            { name: '256 KB', value: '256kb' },
+          ),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('target-kb')
+          .setDescription('Exact target in KB, overrides the preset')
+          .setMinValue(16)
+          .setMaxValue(100_000),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('format')
+          .setDescription('Output format (default: WebP, which compresses best)')
+          .addChoices(
+            { name: 'WebP', value: 'webp' },
+            { name: 'AVIF', value: 'avif' },
+            { name: 'JPEG', value: 'jpeg' },
+          ),
+      )
+      .addBooleanOption((o) =>
+        o
+          .setName('allow-resize')
+          .setDescription('Shrink dimensions if quality alone is not enough (default: yes)'),
+      ),
+    handler: compressCommand,
+    category: 'utility',
+    summary: 'Shrink an image to fit a size limit',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('exif')
+      .setDescription('Read an image’s metadata, and strip it')
+      .addAttachmentOption((o) =>
+        o.setName('image').setDescription('Image to read').setRequired(true),
+      )
+      .addBooleanOption((o) =>
+        o.setName('private').setDescription('Only you can see the result (default: yes)'),
+      ),
+    handler: exif,
+    category: 'utility',
+    summary: 'Read an image’s metadata, and strip it',
   },
   {
     builder: new SlashCommandBuilder()
