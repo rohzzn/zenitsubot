@@ -17,8 +17,10 @@ import { GEMINI_LIVE_MODEL } from '../../../services/geminiLive.js';
 import {
   ZenitsuVoice,
   activeZenitsu,
+  claimGuild,
   clearZenitsu,
   registerZenitsu,
+  releaseClaim,
 } from '../../../services/zenitsuVoice.js';
 import { forgetEverything, loadMemory } from '../../../services/voiceMemory.js';
 import {
@@ -182,7 +184,6 @@ export const zenitsu = {
     const channel = member?.voice.channel;
 
     if (!channel) throw new UserError('Join a voice channel first.');
-    if (activeZenitsu(guildId)) throw new UserError('I am already in a channel here.');
 
     if (shoukaku?.connections.get(guildId)) {
       throw new UserError(
@@ -190,22 +191,41 @@ export const zenitsu = {
       );
     }
 
+    // Claimed synchronously, before any await. Checking a map and registering
+    // after an await let two rapid invocations both through, and two sessions
+    // then fought over the same voice connection.
+    if (!claimGuild(guildId)) throw new UserError('I am already in a channel here.');
+
     await interaction.deferReply();
 
-    if (!(await isVoiceServiceUp())) {
-      throw new UserError(
-        'The local speech models are not running, and they are what keeps ordinary conversation ' +
-          'off the wire. Start them on the Mac with `npm run voice`, then try again.',
-      );
-    }
+    // Anything that throws past this point has to give the guild back, or the
+    // claim leaks and /zenitsu says "already in a channel" forever.
+    try {
+      if (!(await isVoiceServiceUp())) {
+        throw new UserError(
+          'The speech models are still starting up. They load on login and take about a minute ' +
+            'the first time — try again shortly.\n' +
+            'If this persists, check `tail -f voice/server.log` on the Mac.',
+        );
+      }
 
-    // Warmed while joining. Cold, the first wake-word check takes seconds.
-    await warmUp();
+      // Warmed while joining. Cold, the first wake-word check takes seconds.
+      await warmUp();
+    } catch (err) {
+      releaseClaim(guildId);
+      throw err;
+    }
 
     const log: string[] = [];
     let state = 'listening';
 
+    // Only redraw once the reply message exists. Firing editReply from a
+    // session event before then produced "Unknown Message" errors, because the
+    // handlers can run during join(), before the card has been sent.
+    let ready = false;
+
     const redraw = () => {
+      if (!ready) return;
       void interaction
         .editReply(v2Update(statusCard({ channelName: channel.name, state, log })))
         .catch(() => {});
@@ -239,6 +259,8 @@ export const zenitsu = {
     try {
       await session.join();
     } catch (err) {
+      releaseClaim(guildId);
+      session.leave('join failed');
       throw new UserError(`Could not join ${channel.name}: ${(err as Error).message}`);
     }
 
@@ -247,6 +269,8 @@ export const zenitsu = {
     const message = await interaction.editReply(
       v2Update(statusCard({ channelName: channel.name, state, log })),
     );
+
+    ready = true;
 
     await attachState(message.id, handler, interaction.user.id, { guildId });
   },

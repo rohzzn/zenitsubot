@@ -20,7 +20,9 @@
     "register:commands": "dotenv -e .env -- tsx scripts/register-commands.ts",
     "verify:commands": "dotenv -e .env -- tsx scripts/verify-commands.ts",
     "clear:commands": "dotenv -e .env -- tsx scripts/clear-commands.ts",
-    "voice": "cd voice && ./.venv/bin/python server.py"
+    "voice": "cd voice && ./.venv/bin/python server.py",
+    "voice:install": "bash voice/install-agent.sh",
+    "voice:log": "tail -f /tmp/zenitsu-voice.log"
   },
   "dependencies": {
     "@discordjs/rest": "^2.3.0",

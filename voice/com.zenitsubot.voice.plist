@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Keeps the speech models running, always.
+
+  The models cannot live in Docker — macOS gives containers no Metal GPU — so
+  something on the host has to run them. Requiring `npm run voice` before using
+  the bot is a bad answer: it means remembering a terminal command before a
+  Discord command, and forgetting it looks like the bot being broken.
+
+  As a LaunchAgent it starts at login, restarts if it crashes, and is simply
+  always there. Install with `npm run voice:install`.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zenitsubot.voice</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__VOICE_DIR__/run.sh</string>
+    </array>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <!-- Bound to all interfaces so the bot container can reach it over
+             host.docker.internal; loopback-only would be invisible to Docker. -->
+        <key>VOICE_HOST</key>
+        <string>0.0.0.0</string>
+        <key>VOICE_PORT</key>
+        <string>8931</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <dict>
+        <!-- Restart on a crash, but not on a clean exit, so stopping it by
+             hand actually stops it. -->
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+
+    <!-- Models take a minute to load and warm; without this launchd would
+         consider rapid restarts a crash loop and give up. -->
+    <key>ThrottleInterval</key>
+    <integer>60</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/zenitsu-voice.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/zenitsu-voice.log</string>
+
+    <key>ProcessType</key>
+    <string>Interactive</string>
+</dict>
+</plist>

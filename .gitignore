@@ -24,3 +24,4 @@ voice/*.onnx
 voice/*.bin
 voice/server.log
 voice/samples/
+voice/requirements.txt.lock

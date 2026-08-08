@@ -380,11 +380,36 @@ export class ZenitsuVoice {
     this.idleTimer.unref();
   }
 
-  /** Leaves once the humans have. */
+  /**
+   * Leaves once the humans have — and not a moment before.
+   *
+   * `channel.members` is derived from the guild member cache, which the bot
+   * does not fully populate without the GuildMembers intent. It reported an
+   * empty channel while somebody was sitting in it talking, and the session
+   * ended itself with "everyone left" forty seconds in.
+   *
+   * Voice states are the right source: the GuildVoiceStates intent keeps them
+   * accurate for exactly this, and they are what Discord uses to decide who is
+   * in a channel.
+   *
+   * Two consecutive empty readings are required before leaving, because a
+   * cache can be momentarily wrong and being wrong here ends the conversation.
+   */
   private watchForEmpty(): void {
+    let consecutiveEmpty = 0;
+
     this.emptyTimer = setInterval(() => {
-      const humans = this.channel.members.filter((m) => !m.user.bot).size;
-      if (humans === 0) this.leave('everyone left');
+      const humans = this.channel.guild.voiceStates.cache.filter(
+        (state) => state.channelId === this.channel.id && !state.member?.user.bot,
+      ).size;
+
+      if (humans > 0) {
+        consecutiveEmpty = 0;
+        return;
+      }
+
+      consecutiveEmpty++;
+      if (consecutiveEmpty >= 2) this.leave('everyone left');
     }, EMPTY_CHANNEL_MS);
 
     this.emptyTimer.unref();
@@ -400,7 +425,18 @@ export class ZenitsuVoice {
     this.live?.close();
     this.playback?.destroy();
     this.player?.stop(true);
-    this.connection?.destroy();
+
+    // Guarded because destroying twice throws, and there are several ways to
+    // leave at once — the button, the command, an empty channel. Clicking
+    // Leave after the channel emptied produced a crash report for what is
+    // really "already gone".
+    try {
+      if (this.connection?.state.status !== VoiceConnectionStatus.Destroyed) {
+        this.connection?.destroy();
+      }
+    } catch (err) {
+      logger.debug({ err }, 'Voice connection was already gone');
+    }
 
     logger.info({ guild: this.channel.guild.id, reason }, 'Zenitsu left');
     this.events.onState?.(`left: ${reason}`);
@@ -471,18 +507,38 @@ function resampleToDiscord(pcm: Buffer, from: number): Buffer {
 
 const sessions = new Map<string, ZenitsuVoice>();
 
+/**
+ * Guilds where a session is being set up but does not exist yet.
+ *
+ * Checking `sessions` and then registering after an await is a race, and it
+ * lost: two invocations arriving 8ms apart both passed the check, both joined,
+ * and two sessions fought over one voice connection — which is why nothing was
+ * understood and the reply never played. Claiming the guild synchronously,
+ * before any await, is what closes it.
+ */
+const claiming = new Set<string>();
+
 export function activeZenitsu(guildId: string): ZenitsuVoice | undefined {
   return sessions.get(guildId);
 }
 
+/** True if this call won the race and may proceed to join. */
+export function claimGuild(guildId: string): boolean {
+  if (sessions.has(guildId) || claiming.has(guildId)) return false;
+  claiming.add(guildId);
+  return true;
+}
+
+export function releaseClaim(guildId: string): void {
+  claiming.delete(guildId);
+}
+
 export function registerZenitsu(session: ZenitsuVoice): void {
   sessions.set(session.guildId, session);
+  claiming.delete(session.guildId);
 }
 
 export function clearZenitsu(guildId: string): void {
   sessions.delete(guildId);
-}
-
-export function zenitsuGuilds(): Guild[] {
-  return [];
+  claiming.delete(guildId);
 }

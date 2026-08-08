@@ -11,12 +11,24 @@ over `host.docker.internal:8931`.
 ## Running it
 
 ```
-npm run voice
+npm run voice:install
 ```
 
-First start downloads about 800MB of model weights and takes a couple of
-minutes; after that it is a few seconds. The server warms both models before
-reporting ready, and keeps them warm on a timer.
+Once. After that it starts at login, restarts if it crashes, and you never
+think about it again — `/zenitsu` and `/talk` just work.
+
+The runtime is installed to `~/Library/Application Support/zenitsubot-voice`
+rather than run from the repo, and that is not tidiness. macOS protects
+`~/Downloads`, `~/Documents` and `~/Desktop` with TCC, and a LaunchAgent gets
+"Operation not permitted" trying to read any of them. Application Support is
+not protected. Re-run the installer after changing `server.py`.
+
+A cold start takes about a minute while the models load and warm; the bot
+reports the service as still starting until then.
+
+```
+npm run voice:log       # tail the log
+```
 
 ## What it runs, and why
 
