@@ -112,6 +112,14 @@ const schema = z.object({
     .optional()
     .transform((v) => (v ? v.toLowerCase() === 'true' : false)),
 
+  // Privileged. Welcome cards and auto-role need it; without it Discord never
+  // sends the join event at all. Enable it in the Developer Portal first, or
+  // login is rejected and the bot will not start.
+  GUILD_MEMBERS_INTENT: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.toLowerCase() === 'true' : false)),
+
   // Owner alert
   OWNER_DISCORD_ID: z.string().optional(),
 
@@ -135,6 +143,7 @@ const schema = z.object({
 export type AppConfig = z.infer<typeof schema> & {
   WEB_DASHBOARD_ENABLED: boolean;
   MESSAGE_CONTENT_INTENT: boolean;
+  GUILD_MEMBERS_INTENT: boolean;
   TORRENT_1337X_DOMAINS: string[];
 };
 

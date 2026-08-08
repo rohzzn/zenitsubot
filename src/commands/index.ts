@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, PermissionFlagsBits, ChannelType } from 'discord.js';
 import type {
   Client,
   ChatInputCommandInteraction,
@@ -44,6 +44,8 @@ import { ban } from './slash/mod/ban.js';
 import { mute } from './slash/mod/mute.js';
 import { purge } from './slash/mod/purge.js';
 import { warn, warnings } from './slash/mod/warn.js';
+import { post } from './slash/mod/post.js';
+import { serverconfig } from './slash/mod/serverconfig.js';
 
 // Economy
 import { balance } from './slash/economy/balance.js';
@@ -956,6 +958,137 @@ export const COMMANDS: CommandDefinition[] = [
   },
 
   // ------------------------------------------------------------------ Anime
+
+  {
+    builder: new SlashCommandBuilder()
+      .setName('serverconfig')
+      .setDescription('Welcome, auto-role, anime and game update channels')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+      .addSubcommandGroup((g) =>
+        g
+          .setName('welcome')
+          .setDescription('Greet new members with a generated card')
+          .addSubcommand((s) =>
+            s
+              .setName('set')
+              .setDescription('Choose the welcome channel')
+              .addChannelOption((o) =>
+                o
+                  .setName('channel')
+                  .setDescription('Where to greet people')
+                  .addChannelTypes(ChannelType.GuildText)
+                  .setRequired(true),
+              ),
+          )
+          .addSubcommand((s) => s.setName('off').setDescription('Stop greeting new members')),
+      )
+      .addSubcommandGroup((g) =>
+        g
+          .setName('autorole')
+          .setDescription('Give everyone who joins a role')
+          .addSubcommand((s) =>
+            s
+              .setName('set')
+              .setDescription('Choose the role to assign on join')
+              .addRoleOption((o) =>
+                o.setName('role').setDescription('Role to give').setRequired(true),
+              ),
+          )
+          .addSubcommand((s) => s.setName('off').setDescription('Stop assigning a role')),
+      )
+      .addSubcommandGroup((g) =>
+        g
+          .setName('anime')
+          .setDescription('New episode announcements')
+          .addSubcommand((s) =>
+            s
+              .setName('channel')
+              .setDescription('Where new episodes are posted')
+              .addChannelOption((o) =>
+                o
+                  .setName('channel')
+                  .setDescription('Channel')
+                  .addChannelTypes(ChannelType.GuildText)
+                  .setRequired(true),
+              ),
+          )
+          .addSubcommand((s) =>
+            s
+              .setName('follow')
+              .setDescription('Follow a show')
+              .addStringOption((o) =>
+                o
+                  .setName('anime')
+                  .setDescription('Search for a show')
+                  .setAutocomplete(true)
+                  .setRequired(true),
+              ),
+          ),
+      )
+      .addSubcommandGroup((g) =>
+        g
+          .setName('game')
+          .setDescription('Patch notes and game news')
+          .addSubcommand((s) =>
+            s
+              .setName('channel')
+              .setDescription('Where game news is posted')
+              .addChannelOption((o) =>
+                o
+                  .setName('channel')
+                  .setDescription('Channel')
+                  .addChannelTypes(ChannelType.GuildText)
+                  .setRequired(true),
+              ),
+          )
+          .addSubcommand((s) =>
+            s
+              .setName('follow')
+              .setDescription('Follow a game')
+              .addStringOption((o) =>
+                o
+                  .setName('game')
+                  .setDescription('Search Steam')
+                  .setAutocomplete(true)
+                  .setRequired(true),
+              ),
+          ),
+      )
+      .addSubcommand((s) => s.setName('show').setDescription('See the current setup')),
+    handler: serverconfig,
+    category: 'moderation',
+    summary: 'Welcome, auto-role, anime and game update channels',
+  },
+
+  {
+    builder: new SlashCommandBuilder()
+      .setName('post')
+      .setDescription('Announce a video, stream or post with a role ping')
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
+      .addChannelOption((o) =>
+        o
+          .setName('channel')
+          .setDescription('Where to post it')
+          .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement)
+          .setRequired(true),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('link')
+          .setDescription('YouTube, Twitch, X, Instagram or any link')
+          .setRequired(true),
+      )
+      .addStringOption((o) =>
+        o
+          .setName('message')
+          .setDescription('What to say, e.g. just uploaded, check it out')
+          .setRequired(true),
+      )
+      .addRoleOption((o) => o.setName('ping').setDescription('Role to notify')),
+    handler: post,
+    category: 'moderation',
+    summary: 'Announce a video, stream or post with a role ping',
+  },
 
   // ---------------------------------------------------------------- Economy
   {

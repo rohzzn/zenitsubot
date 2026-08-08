@@ -27,6 +27,11 @@ async function main() {
     GatewayIntentBits.GuildVoiceStates,
   ];
 
+  // Privileged, and off by default in the Developer Portal. Requested only
+  // when enabled, because logging in with an intent the application has not
+  // been granted is rejected outright and the bot never starts.
+  if (config.GUILD_MEMBERS_INTENT) intents.push(GatewayIntentBits.GuildMembers);
+
   if (config.MESSAGE_CONTENT_INTENT) intents.push(GatewayIntentBits.MessageContent);
 
   const client = new Client({
@@ -50,6 +55,7 @@ async function main() {
   const { registerMentionChatListener } = await import('./listeners/mentionChat.js');
   const { default: registerButtonHandler } = await import('./listeners/buttonInteraction.js');
   const { registerComponentRouter } = await import('./listeners/componentRouter.js');
+  const { registerGuildMemberAddListener } = await import('./listeners/guildMemberAdd.js');
 
   registerReadyListener(client);
   registerInteractionCreateListener(client);
@@ -59,10 +65,12 @@ async function main() {
   registerMentionChatListener(client);
   registerButtonHandler(client);
   registerComponentRouter(client);
+  registerGuildMemberAddListener(client);
 
   const { startReminderScheduler } = await import('./services/reminderScheduler.js');
   const { startTorrentWatchScheduler } = await import('./services/torrentWatch.js');
   const { startFeedScheduler } = await import('./services/feedScheduler.js');
+  const { startUpdateScheduler } = await import('./services/updates.js');
 
   process.on('unhandledRejection', (reason) => {
     logger.error({ reason }, 'UnhandledRejection');
@@ -76,6 +84,7 @@ async function main() {
     startReminderScheduler(client);
     startTorrentWatchScheduler(client);
     startFeedScheduler(client);
+    startUpdateScheduler(client);
   });
 
   await client.login(config.DISCORD_BOT_TOKEN);

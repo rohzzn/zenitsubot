@@ -267,6 +267,16 @@ model GuildConfig {
   welcomeEnabled     Boolean  @default(false)
   welcomeChannelId   String?
   welcomeMessage     String?
+  /// Post the generated card image rather than a line of text.
+  welcomeCard        Boolean  @default(true)
+
+  /// Role given to everyone who joins. Needs the Server Members intent.
+  autoRoleId      String?
+  autoRoleEnabled Boolean @default(false)
+
+  /// Where new anime episodes and game news are posted.
+  animeChannelId String?
+  gameChannelId  String?
   goodbyeEnabled     Boolean  @default(false)
   goodbyeChannelId   String?
   goodbyeMessage     String?
@@ -389,4 +399,39 @@ model TorrentWatch {
 
   @@index([active])
   @@index([userId])
+}
+
+/// An anime a server follows, so new episodes get posted.
+model AnimeFollow {
+  id        String @id @default(cuid())
+  guildId   String
+  /// AniList media id, which is what the airing schedule is keyed on.
+  anilistId Int
+  title     String
+  coverUrl  String?
+
+  /// Highest episode already announced, so a restart does not repeat itself.
+  lastEpisode Int      @default(0)
+  addedBy     String
+  createdAt   DateTime @default(now())
+
+  @@unique([guildId, anilistId])
+  @@index([guildId])
+}
+
+/// A game a server follows, for patch notes and news.
+model GameFollow {
+  id      String @id @default(cuid())
+  guildId String
+  /// Steam app id; Steam's news endpoint is keyed on it and needs no key.
+  appId   Int
+  name    String
+
+  /// Newest news item already posted.
+  lastNewsId String?
+  addedBy    String
+  createdAt  DateTime @default(now())
+
+  @@unique([guildId, appId])
+  @@index([guildId])
 }

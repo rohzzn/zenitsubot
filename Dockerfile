@@ -2,7 +2,17 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
+# Fonts are for the generated welcome card. The slim image ships none at all —
+# fc-list returns zero — so sharp renders SVG text through a fallback and the
+# result looks like a placeholder.
+#
+# CJK is not optional. Without fonts-noto-cjk a Japanese display name rendered
+# as tofu boxes printed with their own hex codepoints, which is worse than not
+# drawing the name at all, and CJK names are common on Discord. It is the
+# largest package here and it earns the space.
 RUN apt-get update && apt-get install -y openssl ca-certificates curl \
+  fonts-dejavu-core fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji fontconfig \
+  && fc-cache -f \
   && rm -rf /var/lib/apt/lists/*
 
 # yt-dlp for /download. The standalone build bundles its own Python, so the
