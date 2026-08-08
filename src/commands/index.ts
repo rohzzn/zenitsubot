@@ -73,6 +73,7 @@ import { timestamp, regex } from './slash/dev/tools.js';
 import { ask } from './slash/ai/ask.js';
 import { aimodel } from './slash/ai/aimodel.js';
 import { talk, talkStop } from './slash/ai/talk.js';
+import { zenitsu } from './slash/ai/zenitsu.js';
 
 // Owner
 import { status } from './slash/owner/status.js';
@@ -1263,6 +1264,24 @@ export const COMMANDS: CommandDefinition[] = [
     handler: talk,
     category: 'ai',
     summary: 'Have a spoken conversation in your voice channel',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('zenitsu')
+      .setDescription('Have Zenitsu sit in your voice channel and answer when called')
+      .addSubcommand((sub) =>
+        sub.setName('join').setDescription('Join your voice channel and listen for your wake word'),
+      )
+      .addSubcommand((sub) => sub.setName('leave').setDescription('Leave the voice channel'))
+      .addSubcommand((sub) =>
+        sub.setName('memory').setDescription('See what Zenitsu remembers about you'),
+      )
+      .addSubcommand((sub) =>
+        sub.setName('forget').setDescription('Make Zenitsu forget everything about you'),
+      ),
+    handler: zenitsu,
+    category: 'ai',
+    summary: 'Have Zenitsu sit in your voice channel and answer when called',
   },
   {
     builder: new SlashCommandBuilder()

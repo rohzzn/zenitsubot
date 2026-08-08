@@ -8,6 +8,68 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// What Zenitsu knows about one person in voice.
+///
+/// Keyed on the Discord user id, which the voice receiver hands over with every
+/// audio stream — so a speaker is identified before a word is transcribed, and
+/// the right memory is loaded before the model is asked anything.
+model VoiceProfile {
+  userId      String  @id
+  /// What they like to be called, when it differs from their Discord name.
+  displayName String?
+  /// Free-form preferences the model wrote about how to talk to them.
+  preferences String?
+
+  /// Rolling summary of past conversations, rewritten rather than appended.
+  summary String?
+
+  firstHeardAt DateTime  @default(now())
+  lastHeardAt  DateTime  @default(now())
+  turns        Int       @default(0)
+
+  facts     VoiceFact[]
+  exchanges VoiceExchange[]
+
+  @@index([lastHeardAt])
+}
+
+/// One thing worth remembering about someone.
+///
+/// Separate rows rather than a blob so a single fact can be corrected or
+/// forgotten without rewriting everything else the bot knows about a person.
+model VoiceFact {
+  id     String @id @default(cuid())
+  userId String
+  /// Short subject, so a later fact about the same thing can replace it.
+  topic  String
+  fact   String
+
+  /// Set when the model itself recorded this, rather than the user asking.
+  inferred  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  profile VoiceProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, topic])
+  @@index([userId, updatedAt])
+}
+
+/// Recent turns, kept briefly so "what did I just say" works across sessions.
+model VoiceExchange {
+  id     String @id @default(cuid())
+  userId String
+
+  spoke    String
+  answered String?
+  guildId  String?
+  at       DateTime @default(now())
+
+  profile VoiceProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId, at])
+}
+
 /// Backing state for message components.
 ///
 /// A collector only exists inside the running process, so every button in a
