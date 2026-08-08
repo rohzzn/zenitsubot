@@ -503,6 +503,79 @@ export function distinctiveTerms(query: string): string[] {
 }
 
 /**
+ * Vocabulary that saturates release names.
+ *
+ * These are real words that carry almost no identifying power, because a large
+ * share of every catalogue contains them. They are still matched — a title
+ * containing them scores a little — but they must never be chosen as the term
+ * that goes to the site, and they must never be enough on their own to call a
+ * result relevant.
+ *
+ * This list exists because length was previously used as a proxy for rarity,
+ * and length gets it exactly backwards here: searching "halo campaign evolved"
+ * picked "campaign" over "halo" for being two letters longer, and every Call
+ * of Duty campaign came back instead of Halo.
+ */
+const WEAK_TERMS = new Set([
+  'campaign',
+  'anniversary',
+  'collection',
+  'complete',
+  'definitive',
+  'deluxe',
+  'digital',
+  'edition',
+  'enhanced',
+  'extended',
+  'game',
+  'games',
+  'goty',
+  'multiplayer',
+  'original',
+  'pack',
+  'premium',
+  'reloaded',
+  'remake',
+  'remaster',
+  'remastered',
+  'repack',
+  'soundtrack',
+  'special',
+  'ultimate',
+  'update',
+  'version',
+]);
+
+/**
+ * How much a term says about which release is wanted.
+ *
+ * A proper corpus would give inverse document frequency. Without one, the
+ * signal available is whether the word belongs to the vocabulary every release
+ * shares, and secondarily how long it is — long words are rarer on average,
+ * but only among words that carry meaning in the first place.
+ */
+export function termWeight(term: string): number {
+  if (WEAK_TERMS.has(term)) return 0.25;
+  if (STOPWORDS.has(term)) return 0.15;
+  // Digits are usually a year or a sequel number: worth something, not much.
+  if (/^\d+$/.test(term)) return 0.5;
+  return Math.min(1, 0.6 + term.length * 0.05);
+}
+
+/**
+ * Term weight adjusted for where it appeared in the query.
+ *
+ * People lead with the name of the thing and qualify it afterwards — "halo
+ * campaign evolved", "dune part two", "call of duty modern warfare". Weight
+ * alone picks the rarest word wherever it sits, which chose "evolved" over
+ * "halo"; a title word that happens to be short would keep losing to a
+ * qualifier that happens to be long.
+ */
+function positionalWeight(term: string, index: number): number {
+  return termWeight(term) * Math.max(0.5, 1 - index * 0.12);
+}
+
+/**
  * The single word most likely to pin down the release.
  *
  * 1337x ORs every word together, so the more words are sent the more unrelated
@@ -510,14 +583,23 @@ export function distinctiveTerms(query: string): string[] {
  * popular torrent happens to share a common word. Asking for one rare word and
  * filtering locally is far more precise: "brand new day" sorted by seeders does
  * not surface Spider-Man at all, while "brand" puts it first.
- *
- * Length stands in for rarity, which is crude but needs no corpus.
  */
 export function bestSearchTerm(query: string): string | undefined {
   const terms = distinctiveTerms(query);
   if (terms.length === 0) return undefined;
 
-  return terms.reduce((best, term) => (term.length > best.length ? term : best));
+  let best = terms[0]!;
+  let bestScore = positionalWeight(best, 0);
+
+  terms.forEach((term, index) => {
+    const score = positionalWeight(term, index);
+    if (score > bestScore) {
+      best = term;
+      bestScore = score;
+    }
+  });
+
+  return best;
 }
 
 /**
@@ -561,11 +643,68 @@ export function releaseKey(result: { title: string; sizeBytes?: number }): strin
   return `${title}|${result.sizeBytes ?? 0}`;
 }
 
+/**
+ * How much of a query's meaning a title carries, from 0 to 1.
+ *
+ * Weighted rather than counted, because a plain count treats every word as
+ * equally telling. Under a count, a Call of Duty release matching only
+ * "campaign" scored the same one-of-three as a Halo release matching only
+ * "halo" — and there are far more of the former, so they won.
+ */
+export function relevanceScore(title: string, terms: string[]): number {
+  if (terms.length === 0) return 0;
+
+  const tokens = normaliseForMatching(title).split(' ');
+  let matched = 0;
+  let total = 0;
+
+  for (const term of terms) {
+    const weight = termWeight(term);
+    total += weight;
+    if (titleHasTerm(tokens, term)) matched += weight;
+  }
+
+  return total > 0 ? matched / total : 0;
+}
+
+/**
+ * The term a result must contain to be considered at all.
+ *
+ * Without this, a long query degrades into "any one word will do" — which is
+ * how a search for a Halo campaign returned Call of Duty. The single most
+ * informative word is not negotiable; the rest is a matter of degree.
+ */
+export function anchorTerm(terms: string[]): string | undefined {
+  if (terms.length === 0) return undefined;
+
+  // Same rule that picks the search term, so the word we ask the site for is
+  // the word we then insist on. Anything else would filter out what we asked
+  // for.
+  let best = terms[0]!;
+  let bestScore = positionalWeight(best, 0);
+
+  terms.forEach((term, index) => {
+    const score = positionalWeight(term, index);
+    if (score > bestScore) {
+      best = term;
+      bestScore = score;
+    }
+  });
+
+  return best;
+}
+
+export function hasAnchor(title: string, terms: string[]): boolean {
+  const anchor = anchorTerm(terms);
+  if (!anchor) return true;
+  return titleHasTerm(normaliseForMatching(title).split(' '), anchor);
+}
+
 export function rankByRelevance<T extends { title: string }>(results: T[], terms: string[]): T[] {
   if (terms.length === 0) return results;
 
   return results
-    .map((result, index) => ({ result, index, score: countMatchingTerms(result.title, terms) }))
+    .map((result, index) => ({ result, index, score: relevanceScore(result.title, terms) }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((entry) => entry.result);
 }

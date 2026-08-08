@@ -1,28 +1,31 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
+import { requireMusic, requireVoice, replyNowPlaying } from './ui.js';
+import { UserError } from '../../../utils/errors.js';
 
 export const remove = {
   data: { name: 'remove' },
   category: 'music',
+
   async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
+    const context = requireMusic(client, interaction);
+    requireVoice(interaction);
+
     const position = interaction.options.getInteger('position', true);
-    const queue = client.playerManager.getQueue(interaction.guildId!);
+    const tracks = context.queue.list();
 
-    if (!queue || queue.list().length === 0) {
-      await interaction.reply({ content: 'The queue is empty.', ephemeral: true });
-      return;
+    // Positions are 1-based because that is how /queue numbers them.
+    if (position < 1 || position > tracks.length) {
+      throw new UserError(
+        `There is no track at position ${position}. The queue has ${tracks.length}.`,
+      );
     }
 
-    // Positions are 1-based in /queue, the array is 0-based.
-    const removed = queue.remove(position - 1);
-
-    if (!removed) {
-      await interaction.reply({
-        content: `There is no track at position ${position}. The queue has ${queue.list().length} track(s).`,
-        ephemeral: true,
-      });
-      return;
+    const target = tracks[position - 1]!;
+    if (position - 1 === context.queue.position()) {
+      throw new UserError('That track is playing now. Use `/skip` instead.');
     }
 
-    await interaction.reply({ content: `Removed **${removed.title}** from the queue.` });
+    context.queue.remove(position - 1);
+    await replyNowPlaying(interaction, context, { note: `Removed ${target.title}` });
   },
 };

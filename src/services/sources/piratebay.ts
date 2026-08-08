@@ -135,7 +135,7 @@ export const pirateBaySource: TorrentSource = {
   label: 'The Pirate Bay',
   blurb: 'Broadest index — films, TV, music, apps and games',
   categories: 'all',
-  enabledByDefault: true,
+  enabledByDefault: false,
 
   async search({ query, category, limit }) {
     const id = category ? CATEGORY_IDS[category] : 0;

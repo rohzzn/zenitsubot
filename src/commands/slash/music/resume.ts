@@ -1,15 +1,18 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
-import { shoukaku } from '../../../music/lavalink.js';
+import { requireMusic, requireVoice, replyNowPlaying } from './ui.js';
+import { UserError } from '../../../utils/errors.js';
 
 export const resume = {
   data: { name: 'resume' },
-  async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
-    const player = shoukaku?.players.get(interaction.guildId!);
-    if (!player) {
-      await interaction.reply({ content: 'Not playing.', ephemeral: true });
-      return;
-    }
-    await player.setPaused(false);
-    await interaction.reply({ content: 'Resumed.', ephemeral: true });
+  category: 'music',
+
+  async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
+    const context = requireMusic(client, interaction);
+    requireVoice(interaction);
+
+    if (!context.player.paused) throw new UserError('Playback is not paused.');
+
+    await context.player.setPaused(false);
+    await replyNowPlaying(interaction, context, { heading: 'Resumed' });
   },
 };

@@ -1,20 +1,22 @@
 import type { Client, ChatInputCommandInteraction } from 'discord.js';
-import { shoukaku } from '../../../music/lavalink.js';
+import { requireMusic, requireVoice, replyNowPlaying } from './ui.js';
+import { bar } from '../../../utils/layout.js';
 
 export const volume = {
   data: { name: 'volume' },
-  async execute(_client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
-    const level = interaction.options.getInteger('level') || 50;
-    if (level < 0 || level > 100) {
-      await interaction.reply({ content: 'Volume must be 0-100.', ephemeral: true });
-      return;
-    }
-    const player = shoukaku?.players.get(interaction.guildId!);
-    if (!player) {
-      await interaction.reply({ content: 'Not playing.', ephemeral: true });
-      return;
-    }
-    await player.setGlobalVolume(level);
-    await interaction.reply({ content: `Volume set to ${level}%.`, ephemeral: true });
+  category: 'music',
+
+  async execute(client: Client, interaction: ChatInputCommandInteraction): Promise<void> {
+    const context = requireMusic(client, interaction);
+    requireVoice(interaction);
+
+    const level = interaction.options.getInteger('level', true);
+    await context.player.setGlobalVolume(level);
+
+    // The bar makes a relative change readable at a glance in a way a
+    // percentage does not — you can see how much headroom is left.
+    await replyNowPlaying(interaction, context, {
+      note: `Volume \`${bar(level / 100, 12)}\` ${level}%`,
+    });
   },
 };

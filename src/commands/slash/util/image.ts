@@ -212,6 +212,14 @@ const TARGET_PRESETS: Record<string, number> = {
   '256kb': 256 * 1024,
 };
 
+/** How hard to squeeze when no size was named. */
+const STRENGTH_QUALITY: Record<string, number> = {
+  light: 90,
+  balanced: 78,
+  hard: 60,
+  extreme: 40,
+};
+
 export const compressCommand = {
   data: { name: 'compress' },
   category: 'utility',
@@ -223,37 +231,69 @@ export const compressCommand = {
     const source = await fetchAttachment(attachment, MAX_SOURCE_BYTES);
     const before = await inspectImage(source.data);
 
-    const preset = interaction.options.getString('target') ?? 'discord';
-    const custom = interaction.options.getInteger('target-kb');
-    const target = custom ? custom * 1024 : (TARGET_PRESETS[preset] ?? DISCORD_UPLOAD_LIMIT);
+    const format =
+      (interaction.options.getString('format') as OutputFormat | null) ?? ('webp' as const);
+    const allowResize = interaction.options.getBoolean('allow-resize') ?? true;
 
-    if (before.bytes <= target) {
-      // Re-encoding something already under budget makes it worse, not better.
+    // Size targets, most specific first. Given in the units people think in.
+    const mb = interaction.options.getNumber('target-mb');
+    const kb = interaction.options.getInteger('target-kb');
+    const preset = interaction.options.getString('target');
+
+    const target = mb
+      ? Math.round(mb * 1024 * 1024)
+      : kb
+        ? kb * 1024
+        : preset
+          ? TARGET_PRESETS[preset]
+          : null;
+
+    let result;
+    let title: string;
+    const notes: string[] = [];
+
+    if (target) {
+      // No early exit on "already small enough". An image under the target can
+      // still be several times smaller — a 9.9 MB PNG under a 10 MB budget is
+      // the obvious case — and refusing to touch it is not what was asked.
+      result = await compress(source, target, { format, allowResize });
+      title = result.missedTarget
+        ? 'Compressed as far as it goes'
+        : `Compressed under ${formatBytes(target)}`;
+      if (result.missedTarget) notes.push('could not reach that target without destroying it');
+    } else {
+      // No size named: squeeze by feel instead of to a number.
+      const strength = interaction.options.getString('strength') ?? 'balanced';
+      const quality = interaction.options.getInteger('quality') ?? STRENGTH_QUALITY[strength] ?? 78;
+
+      const encoded = await transform(source, { format, quality });
+      result = { ...encoded, quality, scale: 100, attempts: 1, missedTarget: false };
+      title = `Compressed`;
+      notes.push(strength);
+    }
+
+    notes.push(`quality ${result.quality}`);
+    if (result.scale !== 100) notes.push(`scaled to ${result.scale}%`);
+    if (result.attempts > 1) notes.push(`${result.attempts} encodes`);
+
+    // Some sources are already better compressed than anything we can produce —
+    // a small WebP re-encoded to WebP usually grows. Handing back something
+    // bigger and calling it compression would be a lie.
+    if (result.data.length >= before.bytes) {
       await interaction.editReply(
-        `That image is already ${formatBytes(before.bytes)}, under the ${formatBytes(target)} target. Nothing to do.`,
+        `**${attachment.name}** is already well compressed at ${formatBytes(before.bytes)}. ` +
+          `Re-encoding to ${formatInfo(format).label} produced ${formatBytes(result.data.length)}, which is larger, so the original is better as-is.\n` +
+          `Force it smaller with \`target-mb\`, \`target-kb\` or a lower \`quality\`.`,
       );
       return;
     }
 
-    const result = await compress(source, target, {
-      format: (interaction.options.getString('format') as OutputFormat | null) ?? undefined,
-      allowResize: interaction.options.getBoolean('allow-resize') ?? true,
-    });
-
-    const notes = [`${result.attempts} encode${result.attempts === 1 ? '' : 's'}`];
-    if (result.scale !== 100) notes.push(`scaled to ${result.scale}%`);
-    notes.push(`quality ${result.quality}`);
-
-    if (result.missedTarget) {
-      notes.push('could not reach the target without destroying it');
-    }
+    guardUploadSize(result, uploadLimit(interaction));
 
     await interaction.editReply({
       ...v2Update(
         resultCard({
-          title: result.missedTarget
-            ? `Compressed as far as it goes`
-            : `Compressed under ${formatBytes(target)}`,
+          title,
           before,
           after: result.facts,
           filename: result.filename,

@@ -356,6 +356,17 @@ export async function compress(
   const format = options.format ?? preferredCompressionFormat(original);
   const minQuality = options.minQuality ?? 40;
 
+  /**
+   * The search maximises quality subject to the cap, which is only the right
+   * goal when the source is over it. Asked to fit a 9.9 MB file under 10 MB it
+   * would happily return a *larger* file at quality 95, having satisfied the
+   * constraint it was given.
+   *
+   * Compression means smaller than what you have, so the cap is tightened to
+   * guarantee a real reduction. An explicit target below that still wins.
+   */
+  const target = Math.min(targetBytes, Math.floor(original.bytes * 0.85));
+
   let attempts = 0;
   let best: TransformResult | null = null;
   let bestQuality = 0;
@@ -368,7 +379,7 @@ export async function compress(
     const candidate = await transform(source, { format, quality });
     attempts++;
 
-    if (candidate.data.length <= targetBytes) {
+    if (candidate.data.length <= target) {
       // Keep the highest quality that fits, then try to do better.
       best = candidate;
       bestQuality = quality;
@@ -389,7 +400,7 @@ export async function compress(
       quality: minQuality,
       scale: 100,
       attempts: attempts + 1,
-      missedTarget: floor.data.length > targetBytes,
+      missedTarget: floor.data.length > target,
     };
   }
 
@@ -399,7 +410,7 @@ export async function compress(
     const candidate = await transform(source, { format, quality: minQuality + 10, scale });
     attempts++;
 
-    if (candidate.data.length <= targetBytes) {
+    if (candidate.data.length <= target) {
       return { ...candidate, quality: minQuality + 10, scale, attempts, missedTarget: false };
     }
     best = candidate;

@@ -9,6 +9,8 @@ import {
   essentialTerms,
   is1337xChallengePage,
   matchesAllTerms,
+  hasAnchor,
+  relevanceScore,
   parse1337xDetails,
   parse1337xSearchResults,
   rankByRelevance,
@@ -76,6 +78,17 @@ const MAX_SEARCH_PAGES = 3;
  * aimed probes as well as extra pages.
  */
 const MAX_PROBES = 5;
+
+/**
+ * Fraction of a query's weight a title must carry to count as a near miss.
+ *
+ * Two thirds keeps "dune part two" matching "Dune Part Two 2024" while
+ * rejecting a title that shares only one common word with the query.
+ */
+const NEAR_MISS_THRESHOLD = 0.66;
+
+/** Above this many exact matches, near misses are not worth showing at all. */
+const MIN_RESULTS_BEFORE_PADDING = 5;
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 40;
@@ -638,24 +651,33 @@ export async function search1337xDetailed(
 
   if (failure && collected.length === 0) throw failure;
 
-  // Rows carrying some of the query but not all of it.
+  // Rows carrying most of the query but not all of it.
   //
-  // One essential word is enough to qualify, because a phrasing the site
-  // cannot answer — "that new villeneuve dune movie" — should still surface
-  // the Dune releases rather than nothing. Noise words were already dropped,
-  // so this cannot drag in a title that merely shares "the".
+  // Two gates, because either alone lets nonsense through. The anchor — the
+  // most informative word — has to be there: a search for a Halo campaign
+  // must never return Call of Duty on the strength of "campaign" alone. And
+  // most of the query's weight has to be present, so "dune part two" still
+  // reaches "Dune Part Two 2024" without reaching "Two Weeks Notice".
   const nearMisses = rankByRelevance(
     collected.filter(
       (result) =>
-        !matchesAllTerms(result.title, terms) && countMatchingTerms(result.title, terms) >= 1,
+        !matchesAllTerms(result.title, terms) &&
+        hasAnchor(result.title, terms) &&
+        relevanceScore(result.title, terms) >= NEAR_MISS_THRESHOLD,
     ),
     terms,
   );
 
-  // Exact matches first, then the best of the rest to fill the list out. A
-  // page showing three results when twenty were fetched reads as broken, and
-  // the near misses are often the same title spelled differently.
-  const relevant = [...sortResults(full, sort, order), ...nearMisses].slice(0, limit);
+  // Near misses fill out a thin list; they do not pad a healthy one.
+  //
+  // Padding unconditionally to `limit` was why a good search looked broken:
+  // three solid matches were followed by twelve loosely-related rows, and the
+  // list read as though the bot had misunderstood the question.
+  const sorted = sortResults(full, sort, order);
+  const relevant =
+    sorted.length >= MIN_RESULTS_BEFORE_PADDING
+      ? sorted.slice(0, limit)
+      : [...sorted, ...nearMisses].slice(0, limit);
 
   logger.debug(
     {

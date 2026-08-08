@@ -315,10 +315,17 @@ export const COMMANDS: CommandDefinition[] = [
       .addAttachmentOption((o) =>
         o.setName('image').setDescription('Image to compress').setRequired(true),
       )
+      .addNumberOption((o) =>
+        o
+          .setName('target-mb')
+          .setDescription('Exact size to get under, in MB. Decimals are fine, e.g. 2.5')
+          .setMinValue(0.01)
+          .setMaxValue(100),
+      )
       .addStringOption((o) =>
         o
           .setName('target')
-          .setDescription('Size to get under (default: this server’s upload limit)')
+          .setDescription('Or pick a common size')
           .addChoices(
             { name: 'Discord upload limit', value: 'discord' },
             { name: '8 MB', value: '8mb' },
@@ -329,11 +336,29 @@ export const COMMANDS: CommandDefinition[] = [
             { name: '256 KB', value: '256kb' },
           ),
       )
+      .addStringOption((o) =>
+        o
+          .setName('strength')
+          .setDescription('How hard to squeeze when no size is given (default: balanced)')
+          .addChoices(
+            { name: 'Light — barely visible loss', value: 'light' },
+            { name: 'Balanced — good size, still sharp', value: 'balanced' },
+            { name: 'Hard — noticeably smaller', value: 'hard' },
+            { name: 'Extreme — as small as it goes', value: 'extreme' },
+          ),
+      )
+      .addIntegerOption((o) =>
+        o
+          .setName('quality')
+          .setDescription('Exact quality 1-100, overrides strength')
+          .setMinValue(1)
+          .setMaxValue(100),
+      )
       .addIntegerOption((o) =>
         o
           .setName('target-kb')
-          .setDescription('Exact target in KB, overrides the preset')
-          .setMinValue(16)
+          .setDescription('Exact size to get under, in KB')
+          .setMinValue(4)
           .setMaxValue(100_000),
       )
       .addStringOption((o) =>
@@ -725,9 +750,10 @@ export const COMMANDS: CommandDefinition[] = [
       .setDescription('Set the loop mode')
       .addStringOption((o) =>
         o
+          // Optional on purpose: with no mode it cycles, which is what the
+          // Loop button on the player does. The two should not differ.
           .setName('mode')
-          .setDescription('Loop mode')
-          .setRequired(true)
+          .setDescription('Leave blank to cycle through off, track and queue')
           .addChoices(
             { name: 'Off', value: 'off' },
             { name: 'Track', value: 'track' },
