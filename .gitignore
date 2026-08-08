@@ -16,3 +16,11 @@ prisma/*.db-journal
 
 
 .env.local
+
+# Voice service: venv, model weights and runtime log. Weights are ~800MB and
+# are downloaded on first run.
+voice/.venv/
+voice/*.onnx
+voice/*.bin
+voice/server.log
+voice/samples/

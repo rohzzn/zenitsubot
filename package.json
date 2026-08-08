@@ -19,11 +19,12 @@
     "prisma:migrate": "prisma migrate deploy",
     "register:commands": "dotenv -e .env -- tsx scripts/register-commands.ts",
     "verify:commands": "dotenv -e .env -- tsx scripts/verify-commands.ts",
-    "clear:commands": "dotenv -e .env -- tsx scripts/clear-commands.ts"
+    "clear:commands": "dotenv -e .env -- tsx scripts/clear-commands.ts",
+    "voice": "cd voice && ./.venv/bin/python server.py"
   },
   "dependencies": {
     "@discordjs/rest": "^2.3.0",
-    "@discordjs/voice": "^0.16.0",
+    "@discordjs/voice": "^0.19.2",
     "@prisma/client": "^5.18.0",
     "axios": "^1.7.5",
     "cheerio": "^1.2.0",
@@ -37,10 +38,13 @@
     "express-session": "^1.18.0",
     "jimp": "^1.6.1",
     "jsqr": "^1.4.0",
+    "libsodium-wrappers": "^0.8.4",
+    "opusscript": "^0.0.8",
     "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
     "pino": "^9.4.0",
     "pino-pretty": "^13.1.3",
+    "prism-media": "^1.3.5",
     "prisma": "^5.18.0",
     "qrcode": "^1.5.4",
     "sharp": "^0.35.3",

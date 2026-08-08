@@ -72,6 +72,7 @@ import { timestamp, regex } from './slash/dev/tools.js';
 // AI
 import { ask } from './slash/ai/ask.js';
 import { aimodel } from './slash/ai/aimodel.js';
+import { talk, talkStop } from './slash/ai/talk.js';
 
 // Owner
 import { status } from './slash/owner/status.js';
@@ -1251,6 +1252,25 @@ export const COMMANDS: CommandDefinition[] = [
     handler: aimodel,
     category: 'ai',
     summary: 'View or change the AI model',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('talk')
+      .setDescription('Have a spoken conversation in your voice channel')
+      .addStringOption((o) =>
+        o.setName('voice').setDescription('Which voice to reply in').setAutocomplete(true),
+      ),
+    handler: talk,
+    category: 'ai',
+    summary: 'Have a spoken conversation in your voice channel',
+  },
+  {
+    builder: new SlashCommandBuilder()
+      .setName('untalk')
+      .setDescription('End the spoken conversation'),
+    handler: talkStop,
+    category: 'ai',
+    summary: 'End the spoken conversation',
   },
 
   // ------------------------------------------------------------------ Owner
